@@ -5,7 +5,7 @@
 groups = ["default", "dev"]
 strategy = ["inherit_metadata"]
 lock_version = "4.5.0"
-content_hash = "sha256:7567f3d3137cf5ad1cc7bf1026d504683f000b3de2fb05cb4e44874f0c9f78f1"
+content_hash = "sha256:87e0cd45448ccff37d1ff8560859f99aaa0afad71bf0c874f11cd4adbcd3b676"
 
 [[metadata.targets]]
 requires_python = ">=3.10"
@@ -205,8 +205,8 @@ files = [
 
 [[package]]
 name = "cloudinary"
-version = "1.44.4"
-summary = "Python and Django SDK for Cloudinary"
+version = "1.46.3"
+summary = "Upload, transform, optimize, and manage images and videos with Cloudinary from Python or Django."
 groups = ["default"]
 dependencies = [
     "certifi",
@@ -214,8 +214,8 @@ dependencies = [
     "urllib3>=1.26.5",
 ]
 files = [
-    {file = "cloudinary-1.44.4-py3-none-any.whl", hash = "sha256:f1ac6c44ab19dd5e19500fed5cbf91b861d78b3b97ae0ef5588423e44e1c1bad"},
-    {file = "cloudinary-1.44.4.tar.gz", hash = "sha256:252c68b1f2f1a05ca703c56157601558ddde36c24cdf2fad009f0814463f74f2"},
+    {file = "cloudinary-1.46.3-py3-none-any.whl", hash = "sha256:9577287a679bb1f19c74cd9e9f27d8c0d122f33a102d6031263868c41d93ee19"},
+    {file = "cloudinary-1.46.3.tar.gz", hash = "sha256:abc5fdf7f2e3d55b81d520d3ea63242f9e1f35e0106957f1bb479d997a224e08"},
 ]
 
 [[package]]
