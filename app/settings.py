@@ -40,7 +40,7 @@ FRONTEND_URLS = [
 
 CLOUDINARY_URL = os.getenv('CLOUDINARY_URL')
 
-CORS_ALLOWED_ORIGINS = FRONTEND_URLS
+CORS_ALLOWED_ORIGINS = "http://localhost:5173", "http://127.0.0.1:5173", "",
 CSRF_TRUSTED_ORIGINS = FRONTEND_URLS
 CORS_ALLOW_CREDENTIALS = True
 
@@ -49,6 +49,7 @@ CORS_ALLOW_CREDENTIALS = True
 # ============================================================
 
 INSTALLED_APPS = [
+    'corsheaders',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -57,7 +58,6 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
 
     # Terceiros
-    'corsheaders',
     'django_extensions',
     'django_filters',
     'drf_spectacular',
@@ -72,10 +72,10 @@ INSTALLED_APPS = [
 # ============================================================
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
-    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
