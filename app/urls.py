@@ -7,7 +7,7 @@ from drf_spectacular.views import (
 )
 from rest_framework.routers import DefaultRouter
 from core.views import (
-    CategoriaViewSet,
+    ValidacaoViewSet,
     CustomTokenObtainPairView,
     CustomTokenRefreshView,
     CustomTokenVerifyView,
@@ -18,7 +18,7 @@ from core.views import (
 
 router = DefaultRouter()
 router.register(r'usuarios', UserViewSet, basename='usuarios')
-router.register(r'categorias', CategoriaViewSet, basename='categorias')
+router.register(r'validacoes', ValidacaoViewSet, basename='validacoes')
 
 
 urlpatterns = [
