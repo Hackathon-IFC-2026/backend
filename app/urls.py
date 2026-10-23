@@ -8,12 +8,15 @@ from drf_spectacular.views import (
 from rest_framework.routers import DefaultRouter
 
 from core.views import (
+    BoardViewSet,
     CustomTokenObtainPairView,
     CustomTokenRefreshView,
     CustomTokenVerifyView,
     PasswordResetConfirmView,
     PasswordResetRequestView,
     PasswordResetVerifyView,
+    TaskInvitationViewSet,
+    TaskViewSet,
     UserRegistrationView,
     UserViewSet,
     ValidacaoViewSet,
@@ -22,6 +25,9 @@ from core.views import (
 router = DefaultRouter()
 router.register(r'usuarios', UserViewSet, basename='usuarios')
 router.register(r'validacoes', ValidacaoViewSet, basename='validacoes')
+router.register(r'boards', BoardViewSet, basename='board')
+router.register(r'tasks', TaskViewSet, basename='task')
+router.register(r'invitations', TaskInvitationViewSet, basename='task-invitation')
 
 
 urlpatterns = [

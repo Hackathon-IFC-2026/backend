@@ -73,6 +73,7 @@ FRONTEND_URLS = [
     for url in os.getenv('FRONTEND_URLS', 'http://localhost:5173,http://127.0.0.1:5173').split(',')
     if url.strip()
 ]
+FRONTEND_BASE_URL = os.getenv('FRONTEND_BASE_URL', '').rstrip('/')
 
 CLOUDINARY_URL = os.getenv('CLOUDINARY_URL')
 

@@ -1,0 +1,13 @@
+KANDO — Convite para uma tarefa
+
+{{ inviter_name }} convidou você para participar da tarefa "{{ task_title }}".
+Quadro: {{ board_title }}
+
+Aceitar convite:
+{{ accept_url }}
+
+Recusar convite:
+{{ decline_url }}
+
+Os links abrem a confirmação da ação. Entre na sua conta e confirme para responder; abrir um link não aceita nem recusa o convite.
+Este convite expira em {{ expires_at|date:"d/m/Y H:i" }}.
