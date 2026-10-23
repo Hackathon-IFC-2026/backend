@@ -117,7 +117,9 @@ DEFAULT_FROM_EMAIL=Livraria <nao-responda@seu-dominio.example>
 
 Use TLS ou SSL conforme o provedor; não habilite ambos. Mantenha credenciais somente no ambiente de execução, nunca no repositório. Em produção, configure o domínio e o servidor da aplicação para operar por HTTPS. O envio usa `EmailMultiAlternatives`, com templates HTML e texto simples.
 
-Para Gmail, use `EMAIL_HOST=smtp.gmail.com`, `EMAIL_PORT=587`, `EMAIL_USE_TLS=True` e `EMAIL_USE_SSL=False`. `EMAIL_HOST_PASSWORD` deve ser uma senha de app do Google (com a verificação em duas etapas ativada), não a senha normal da conta nem o texto ilustrativo do `.env.example`. O usuário e o remetente (`EMAIL_HOST_USER` e `DEFAULT_FROM_EMAIL`) devem pertencer à conta autorizada a enviar.
+Para o remetente Gmail do Kando, use `EMAIL_HOST=smtp.gmail.com`, `EMAIL_PORT=587`, `EMAIL_USE_TLS=True`, `EMAIL_USE_SSL=False`, `EMAIL_HOST_USER=kando.gerenciador@gmail.com` e `DEFAULT_FROM_EMAIL=kando.gerenciador@gmail.com`. `EMAIL_HOST_PASSWORD` deve ser uma senha de app do Google (com a verificação em duas etapas ativada), não a senha normal da conta. Mantenha-a somente no `.env` e nunca a registre em logs. O destinatário de cada recuperação continua sendo o endereço salvo na conta do usuário.
+
+O fluxo usa o SMTP autenticado do Gmail, remetente igual à conta autenticada e uma mensagem multipart com alternativa HTML/texto simples. O código não controla a classificação de spam nem pode confirmar a entrega final após a aceitação SMTP. Confira a pasta Spam, marque mensagens legítimas como “Não é spam” e verifique filtros/regras e mensagens de devolução. Para `@gmail.com`, SPF, DKIM e DMARC do domínio são administrados pelo Google; não publique registros DNS para o domínio `gmail.com`. Se o remetente for migrado para um domínio próprio/Google Workspace, o administrador do domínio deve configurar SPF, ativar DKIM no Admin Console e publicar uma política DMARC alinhada ao domínio. Reputação do remetente, volume, denúncias de spam e filtros do destinatário também dependem dos serviços externos e do comportamento dos destinatários.
 
 ### Rotas
 
@@ -160,4 +162,18 @@ pdm run python manage.py runserver
 pdm run python manage.py test core.tests
 ```
 
-Os testes usam o backend de e-mail em memória e não precisam de SMTP. Para validar o recebimento real, configure as credenciais do seu provedor no ambiente, selecione o backend SMTP, inicie a aplicação e solicite a recuperação para um endereço cadastrado; confirme a chegada na caixa de entrada e também na pasta de spam. A aplicação reporta falhas de entrega no log do servidor sem expor detalhes SMTP ao cliente.
+Os testes automatizados usam o backend de e-mail em memória e não precisam de SMTP. Para verificar a configuração efetivamente carregada sem enviar mensagem:
+
+```bash
+pdm run python manage.py diagnose_smtp --check-only
+```
+
+O projeto carrega `.env` explicitamente a partir da raiz do repositório. Variáveis já fornecidas pelo processo/ambiente têm precedência sobre `.env`; o comando sinaliza divergências sem exibir valores de usuário, remetente ou senha. Para fazer um envio SMTP real, use somente um endereço que você controla ou tem autorização para testar:
+
+```bash
+pdm run python manage.py diagnose_smtp --recipient endereco-de-teste-autorizado@example.com
+```
+
+O comando verifica backend, host, porta, credenciais configuradas, TLS/SSL e correspondência entre remetente e usuário autenticado. Ele envia uma mensagem de diagnóstico simples, não um código de recuperação. A aceitação pelo SMTP significa que o servidor aceitou a mensagem para processamento; não comprova entrega na caixa de entrada. Confira spam, promoções, filtros e possíveis mensagens de devolução. Em contas Google Workspace, um administrador pode consultar o Email Log Search no Admin Console; contas pessoais Gmail não oferecem o mesmo log de rastreamento de entrega para o destinatário.
+
+Os logs da recuperação distinguem preparação, aceitação pelo backend e falha, sem registrar endereço, código ou credenciais. Quando uma conta não está disponível, `stage=account result=unavailable` registra internamente `reason=not_found`, `reason=inactive` ou `reason=ambiguous`; a resposta pública permanece genérica. Um resultado `accepted` não é confirmação de entrega final.

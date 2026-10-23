@@ -9,13 +9,10 @@ from dotenv import load_dotenv
 # Carregamento das variáveis de ambiente
 # ============================================================
 
-load_dotenv()
-
-# ============================================================
-# Caminhos do projeto
-# ============================================================
-
 BASE_DIR = Path(__file__).resolve().parent.parent
+ENV_FILE = BASE_DIR / '.env'
+ENV_KEYS_BEFORE_DOTENV = frozenset(os.environ)
+load_dotenv(ENV_FILE)
 
 # ============================================================
 # Configurações básicas
