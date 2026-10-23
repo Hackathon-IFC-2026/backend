@@ -7,7 +7,7 @@ from datetime import timedelta
 from django.conf import settings
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ImproperlyConfigured
-from django.core.mail import EmailMultiAlternatives
+from django.core.mail import EmailMultiAlternatives, get_connection
 from django.db import DatabaseError, transaction
 from django.template.exceptions import TemplateDoesNotExist, TemplateSyntaxError
 from django.template.loader import render_to_string
@@ -23,18 +23,63 @@ REQUEST_WINDOW = timedelta(hours=1)
 RESEND_INTERVAL = timedelta(minutes=1)
 MAX_REQUESTS_PER_WINDOW = 3
 MAX_CODE_ATTEMPTS = 5
+SMTP_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 
 
 class _EmailDeliveryFailed(Exception):
     """Abort challenge persistence when the email cannot be prepared or sent."""
 
 
+def _log_email_failure(stage, account_id, exc):
+    smtp_code = getattr(exc, 'smtp_code', None)
+    errno = getattr(exc, 'errno', None)
+    refused_recipients = getattr(exc, 'recipients', {})
+    refused_codes = sorted(
+        {
+            response[0]
+            for response in refused_recipients.values()
+            if isinstance(response, tuple)
+            and response
+            and isinstance(response[0], int)
+        }
+    )
+    if not isinstance(smtp_code, int):
+        smtp_code = refused_codes[0] if len(refused_codes) == 1 else None
+    if not isinstance(errno, int):
+        errno = None
+    logger.error(
+        'password_reset stage=%s result=failed account_id=%s exception=%s '
+        'smtp_code=%s errno=%s refused_recipient_count=%s refused_recipient_codes=%s',
+        stage,
+        account_id,
+        type(exc).__name__,
+        smtp_code,
+        errno,
+        len(refused_recipients),
+        ','.join(str(code) for code in refused_codes) or None,
+    )
+
+
+def _close_smtp_connection(connection, account_id):
+    try:
+        connection.close()
+    except (OSError, smtplib.SMTPException) as exc:
+        _log_email_failure('smtp_close', account_id, exc)
+
+
 def _active_user_for_email(email, *, lock=False):
-    users = User.objects.filter(email__iexact=email, is_active=True)
+    users = User.objects.filter(email__iexact=email)
     if lock:
         users = users.select_for_update()
-    matches = list(users[:2])
-    return matches[0] if len(matches) == 1 else None
+    if not users.exists():
+        return None, 'not_found'
+
+    active_users = list(users.filter(is_active=True)[:2])
+    if not active_users:
+        return None, 'inactive'
+    if len(active_users) > 1:
+        return None, 'ambiguous'
+    return active_users[0], None
 
 
 def _code_digest(user, code, created_at):
@@ -67,40 +112,61 @@ def _send_reset_email(email, code, account_id):
         to=[email],
     )
     message.attach_alternative(html_body, 'text/html')
+    logger.info('password_reset stage=message result=prepared account_id=%s', account_id)
+
+    smtp_connection = None
+    if settings.EMAIL_BACKEND == SMTP_BACKEND:
+        try:
+            smtp_connection = get_connection(fail_silently=False)
+            smtp_connection.open()
+        except (OSError, smtplib.SMTPException, ImproperlyConfigured, ValueError) as exc:
+            if smtp_connection is not None:
+                _close_smtp_connection(smtp_connection, account_id)
+            _log_email_failure('smtp_connection_or_authentication', account_id, exc)
+            raise _EmailDeliveryFailed from exc
+        message.connection = smtp_connection
 
     try:
         sent_count = message.send(fail_silently=False)
     except (OSError, smtplib.SMTPException, ImproperlyConfigured, ValueError) as exc:
-        smtp_code = getattr(exc, 'smtp_code', None)
-        errno = getattr(exc, 'errno', None)
-        logger.error(
-            'password_reset stage=smtp account_id=%s exception=%s smtp_code=%s errno=%s',
-            account_id,
-            type(exc).__name__,
-            smtp_code,
-            errno,
-        )
+        stage = 'smtp_submission' if smtp_connection is not None else 'email_backend'
+        _log_email_failure(stage, account_id, exc)
         raise _EmailDeliveryFailed from exc
+    finally:
+        if smtp_connection is not None:
+            _close_smtp_connection(smtp_connection, account_id)
 
     if sent_count != 1:
+        stage = 'smtp_submission' if smtp_connection is not None else 'email_backend'
         logger.error(
-            'password_reset stage=smtp account_id=%s result=no_message_accepted',
+            'password_reset stage=%s result=not_accepted account_id=%s',
+            stage,
             account_id,
         )
         raise _EmailDeliveryFailed
 
-    logger.info('password_reset stage=smtp account_id=%s result=message_accepted', account_id)
+    result = 'accepted_by_smtp' if smtp_connection is not None else 'accepted_by_backend'
+    logger.info(
+        'password_reset stage=email_backend result=%s account_id=%s backend=%s',
+        result,
+        account_id,
+        settings.EMAIL_BACKEND,
+    )
     return True
 
 
 def _request_password_reset(email, now, request_context):
     with transaction.atomic():
-        user = _active_user_for_email(email, lock=True)
+        user, unavailable_reason = _active_user_for_email(email, lock=True)
         if user is None:
-            logger.info('password_reset stage=account result=unavailable')
+            logger.info(
+                'password_reset stage=account result=unavailable reason=%s',
+                unavailable_reason,
+            )
             return False
         user_id = user.pk
         request_context['account_id'] = user_id
+        logger.info('password_reset stage=account result=eligible account_id=%s', user_id)
 
         challenge = PasswordResetChallenge.objects.select_for_update().filter(user=user).first()
         if challenge is None:
@@ -132,20 +198,28 @@ def _request_password_reset(email, now, request_context):
         challenge.used_at = None
         challenge.requests_in_window += 1
         challenge.save()
+        logger.info(
+            'password_reset stage=challenge result=generated_and_saved_in_transaction account_id=%s',
+            user_id,
+        )
 
         _send_reset_email(user.email, code, user_id)
-        logger.info('password_reset stage=request result=sent account_id=%s', user_id)
+    logger.info(
+        'password_reset stage=request result=challenge_committed_after_backend_acceptance account_id=%s',
+        user_id,
+    )
     return True
 
 
 def request_password_reset(email):
+    logger.info('password_reset stage=request result=received')
     now = timezone.now()
     request_context = {}
     try:
         return _request_password_reset(email, now, request_context)
     except _EmailDeliveryFailed:
         logger.warning(
-            'password_reset stage=request result=rolled_back account_id=%s',
+            'password_reset stage=request result=challenge_rolled_back account_id=%s',
             request_context.get('account_id'),
         )
         return False
@@ -179,7 +253,7 @@ def _valid_challenge(challenge, code, now):
 
 def verify_password_reset_code(email, code):
     with transaction.atomic():
-        user = _active_user_for_email(email, lock=True)
+        user, _ = _active_user_for_email(email, lock=True)
         if user is None:
             return False
 
@@ -189,7 +263,7 @@ def verify_password_reset_code(email, code):
 
 def reset_password(email, code, new_password):
     with transaction.atomic():
-        user = _active_user_for_email(email, lock=True)
+        user, _ = _active_user_for_email(email, lock=True)
         if user is None:
             return False
 
