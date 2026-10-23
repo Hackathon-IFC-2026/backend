@@ -93,5 +93,69 @@ Esse projeto utiliza os seguintes pacotes e tecnologias:
 
 Este projeto está licenciado sob a [Licença GPL](https://www.gnu.org/licenses/gpl-3.0.html), uma licença de software livre.
 
+## Recuperação de senha por e-mail
 
+O backend implementa o fluxo de solicitação, validação e redefinição com código numérico de seis dígitos. O código é armazenado como HMAC, expira em 10 minutos, permite até cinco tentativas e é invalidado após uso. Há limite por conta de três solicitações por hora, intervalo mínimo de um minuto entre envios e throttling por IP (5 solicitações, 20 validações e 10 confirmações por hora).
 
+### Configuração de e-mail
+
+Copie `.env.example` para `.env`. Em desenvolvimento, configure `EMAIL_BACKEND=django.core.mail.backends.console.EmailBackend` para ver as mensagens no terminal. Para envio real, configure o backend SMTP do Django e as variáveis fornecidas pelo seu provedor:
+
+```dotenv
+EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
+EMAIL_HOST=smtp.seu-provedor.example
+EMAIL_PORT=587
+EMAIL_HOST_USER=usuario-smtp
+EMAIL_HOST_PASSWORD=senha-ou-token-smtp
+EMAIL_TIMEOUT=20
+EMAIL_USE_TLS=True
+EMAIL_USE_SSL=False
+DEFAULT_FROM_EMAIL=Livraria <nao-responda@seu-dominio.example>
+```
+
+Use TLS ou SSL conforme o provedor; não habilite ambos. Mantenha credenciais somente no ambiente de execução, nunca no repositório. Em produção, configure o domínio e o servidor da aplicação para operar por HTTPS. O envio usa `EmailMultiAlternatives`, com templates HTML e texto simples.
+
+Para Gmail, use `EMAIL_HOST=smtp.gmail.com`, `EMAIL_PORT=587`, `EMAIL_USE_TLS=True` e `EMAIL_USE_SSL=False`. `EMAIL_HOST_PASSWORD` deve ser uma senha de app do Google (com a verificação em duas etapas ativada), não a senha normal da conta nem o texto ilustrativo do `.env.example`. O usuário e o remetente (`EMAIL_HOST_USER` e `DEFAULT_FROM_EMAIL`) devem pertencer à conta autorizada a enviar.
+
+### Rotas
+
+As rotas são anônimas e não alteram o login JWT existente. As respostas não informam se o e-mail está cadastrado.
+
+1. `POST /api/auth/password-reset/request/`
+
+   ```json
+   {"email": "usuario@exemplo.com"}
+   ```
+
+   Retorna `202 Accepted` com uma mensagem genérica. Se a conta ativa existir e os limites permitirem, o código será enviado ao endereço cadastrado. Em desenvolvimento, a mensagem aparece no console; o destinatário não é aceito do cliente.
+
+2. `POST /api/auth/password-reset/verify/`
+
+   ```json
+   {"email": "usuario@exemplo.com", "code": "012345"}
+   ```
+
+   Retorna `200` para código válido ou `400` com mensagem genérica para código inválido/expirado. Esta verificação não autoriza a redefinição por si só: a rota de confirmação valida novamente o código.
+
+3. `POST /api/auth/password-reset/confirm/`
+
+   ```json
+   {
+     "email": "usuario@exemplo.com",
+     "code": "012345",
+     "new_password": "NovaSenhaSegura123!",
+     "confirm_password": "NovaSenhaSegura123!"
+   }
+   ```
+
+   Retorna `200` após validar os validadores de senha do Django, alterar a senha e consumir o código. Senhas diferentes, senha inválida ou código inválido retornam `400`.
+
+### Migrations, servidor e testes
+
+```bash
+pdm run python manage.py migrate
+pdm run python manage.py runserver
+pdm run python manage.py test core.tests
+```
+
+Os testes usam o backend de e-mail em memória e não precisam de SMTP. Para validar o recebimento real, configure as credenciais do seu provedor no ambiente, selecione o backend SMTP, inicie a aplicação e solicite a recuperação para um endereço cadastrado; confirme a chegada na caixa de entrada e também na pasta de spam. A aplicação reporta falhas de entrega no log do servidor sem expor detalhes SMTP ao cliente.
