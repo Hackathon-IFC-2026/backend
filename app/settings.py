@@ -262,7 +262,7 @@ REST_FRAMEWORK = {
     'DEFAULT_PAGINATION_CLASS': 'app.pagination.CustomPagination',
     'PAGE_SIZE': 10,
     'DEFAULT_THROTTLE_RATES': {
-        'password_reset_request': '5/hour',
+        'password_reset_request': '10/hour',
         'password_reset_verify': '20/hour',
         'password_reset_confirm': '10/hour',
     },

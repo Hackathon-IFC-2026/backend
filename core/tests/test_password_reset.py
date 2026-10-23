@@ -23,6 +23,7 @@ class PasswordResetAPITests(APITestCase):
     new_password = 'CorrectHorseBatteryStaple!92'
     max_attempts = 5
     max_requests_per_account = 3
+    max_requests_per_ip = 10
     expected_message_count_after_resend = 2
     sha256_digest_length = 64
 
@@ -146,6 +147,16 @@ class PasswordResetAPITests(APITestCase):
     def test_new_request_replaces_the_previous_code(self):
         self.request_code(12345)
         challenge = PasswordResetChallenge.objects.get(user=self.user)
+
+        with self.assertLogs('core.services.password_reset', level='WARNING') as captured_logs:
+            cooldown_response = self.request_code(54321)
+        assert cooldown_response.status_code == status.HTTP_202_ACCEPTED
+        assert cooldown_response.data['detail'] == (
+            'Se a conta existir, enviaremos as instruções para o e-mail cadastrado.'
+        )
+        assert len(mail.outbox) == 1
+        assert 'reason=resend_cooldown' in captured_logs.output[0]
+
         challenge.created_at -= timedelta(minutes=2)
         challenge.save(update_fields=['created_at'])
 
@@ -195,11 +206,15 @@ class PasswordResetAPITests(APITestCase):
                 {'email': 'missing@example.com'},
                 format='json',
             )
-            for _ in range(6)
+            for _ in range(self.max_requests_per_ip + 1)
         ]
 
-        assert all(response.status_code == status.HTTP_202_ACCEPTED for response in responses[:5])
-        assert responses[5].status_code == status.HTTP_429_TOO_MANY_REQUESTS
+        assert all(
+            response.status_code == status.HTTP_202_ACCEPTED
+            for response in responses[:self.max_requests_per_ip]
+        )
+        assert responses[-1].status_code == status.HTTP_429_TOO_MANY_REQUESTS
+        assert int(responses[-1]['Retry-After']) > 0
 
     def test_confirm_changes_password_and_consumes_code(self):
         self.request_code()

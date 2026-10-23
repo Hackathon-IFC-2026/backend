@@ -95,7 +95,9 @@ Este projeto está licenciado sob a [Licença GPL](https://www.gnu.org/licenses/
 
 ## Recuperação de senha por e-mail
 
-O backend implementa o fluxo de solicitação, validação e redefinição com código numérico de seis dígitos. O código é armazenado como HMAC, expira em 10 minutos, permite até cinco tentativas e é invalidado após uso. Há limite por conta de três solicitações por hora, intervalo mínimo de um minuto entre envios e throttling por IP (5 solicitações, 20 validações e 10 confirmações por hora).
+O backend implementa o fluxo de solicitação, validação e redefinição com código numérico de seis dígitos. O código é armazenado como HMAC, expira em 10 minutos, permite até cinco tentativas e é invalidado após uso. Há limite por conta de três solicitações por hora, intervalo mínimo de um minuto entre envios e throttling por IP (10 solicitações, 20 validações e 10 confirmações por hora). O limite por conta restringe o envio real de e-mails mesmo quando várias solicitações são feitas a partir do mesmo IP.
+
+O Django mantém os contadores de throttling no cache configurado. Sem configuração explícita de `CACHES`, usa o `LocMemCache` em memória e separado por processo, inclusive em produção. Em produção com múltiplos workers ou instâncias, configure um backend compartilhado para que os limites por IP sejam consistentes. Para repetir testes, os testes automatizados limpam o cache antes de cada caso; em desenvolvimento local isolado, também é possível reiniciar o servidor ou limpar esse cache pelo shell do Django. Não exponha uma operação de limpeza de cache pela API nem a execute em produção.
 
 ### Configuração de e-mail
 
