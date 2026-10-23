@@ -42,6 +42,7 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     email = models.EmailField(max_length=255, unique=True, verbose_name=_('email'), help_text=_('Email'))
     name = models.CharField(max_length=255, blank=True, null=True, verbose_name=_('name'), help_text=_('Username'))
+    data_nascimento = models.DateField(blank=True, null=True, verbose_name=_('Data de nascimento'), help_text=_('Data de nascimento'))
     is_active = models.BooleanField(
         default=True, verbose_name=_('Usuário está ativo'), help_text=_('Indica que este usuário está ativo.')
     )

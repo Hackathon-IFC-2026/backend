@@ -1,13 +1,13 @@
 from rest_framework.serializers import ModelSerializer, SlugRelatedField
 
-from core.models import Categoria
+from core.models import Validacao
 
 from rest_framework import serializers
 
 
-class CategoriaSerializer(ModelSerializer):
+class ValidacaoSerializer(ModelSerializer):
 
 
     class Meta:
-        model = Categoria
+        model = Validacao
         fields = '__all__'
