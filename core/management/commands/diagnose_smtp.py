@@ -1,4 +1,5 @@
 import smtplib
+from datetime import timedelta
 from email.utils import parseaddr
 from pathlib import Path
 
@@ -7,6 +8,9 @@ from django.core.exceptions import ImproperlyConfigured, ValidationError
 from django.core.mail import EmailMultiAlternatives, get_connection
 from django.core.management.base import BaseCommand, CommandError
 from django.core.validators import validate_email
+from django.template.exceptions import TemplateDoesNotExist, TemplateSyntaxError
+from django.template.loader import render_to_string
+from django.utils import timezone
 from dotenv import dotenv_values
 
 SMTP_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
@@ -49,6 +53,25 @@ def _configuration_source(name, dotenv):
     return 'padrão/fallback'
 
 
+def _render_test_bodies():
+    invitation_id = '00000000-0000-0000-0000-000000000000'
+    context = {
+        'inviter_name': 'Alex Demonstração — convite de teste',
+        'task_title': 'Tarefa de demonstração — revisar o planejamento',
+        'board_title': 'Quadro de demonstração',
+        'accept_url': (f'https://kando.example/convites/{invitation_id}/aceitar'),
+        'decline_url': (f'https://kando.example/convites/{invitation_id}/recusar'),
+        'expires_at': timezone.now() + timedelta(days=7),
+    }
+    try:
+        return (
+            render_to_string('core/emails/task_invitation.txt', context),
+            render_to_string('core/emails/task_invitation.html', context),
+        )
+    except (TemplateDoesNotExist, TemplateSyntaxError, ValueError) as exc:
+        raise CommandError(f'Não foi possível preparar o modelo do e-mail de teste ({type(exc).__name__}).') from exc
+
+
 class Command(BaseCommand):
     help = (
         'Verifica a configuração SMTP sem exibir credenciais e, opcionalmente, '
@@ -86,12 +109,11 @@ class Command(BaseCommand):
         except ValidationError as exc:
             raise CommandError('O endereço de teste não tem um formato válido.') from exc
 
+        text_body, html_body = _render_test_bodies()
         try:
             connection = get_connection(fail_silently=False)
         except (OSError, smtplib.SMTPException, ImproperlyConfigured, ValueError) as exc:
-            raise CommandError(
-                f'Não foi possível preparar o backend SMTP ({type(exc).__name__}).'
-            ) from exc
+            raise CommandError(f'Não foi possível preparar o backend SMTP ({type(exc).__name__}).') from exc
 
         try:
             connection.open()
@@ -106,21 +128,18 @@ class Command(BaseCommand):
             ) from exc
 
         message = EmailMultiAlternatives(
-            subject='[Kando] Teste de configuração SMTP',
-            body=(
-                'Esta é uma mensagem de diagnóstico do SMTP do Kando. '
-                'A aceitação pelo servidor não confirma a entrega final.'
-            ),
+            subject='Kando — convite de demonstração para uma tarefa',
+            body=text_body,
             from_email=settings.DEFAULT_FROM_EMAIL,
             to=[recipient],
             connection=connection,
         )
+        message.attach_alternative(html_body, 'text/html')
         try:
             accepted_count = message.send(fail_silently=False)
         except (OSError, smtplib.SMTPException, ImproperlyConfigured, ValueError) as exc:
             raise CommandError(
-                f'Falha ao submeter a mensagem ao SMTP ({type(exc).__name__}); '
-                'consulte os registros do provedor.'
+                f'Falha ao submeter a mensagem ao SMTP ({type(exc).__name__}); consulte os registros do provedor.'
             ) from exc
         finally:
             try:
@@ -129,14 +148,11 @@ class Command(BaseCommand):
                 self.stderr.write(f'Aviso: erro ao encerrar a conexão SMTP ({type(exc).__name__}).')
 
         if accepted_count != 1:
-            raise CommandError(
-                'O backend não confirmou a aceitação da mensagem para o destinatário.'
-            )
+            raise CommandError('O backend não confirmou a aceitação da mensagem para o destinatário.')
 
         self.stdout.write(
             self.style.SUCCESS(
-                'O servidor SMTP aceitou a mensagem para processamento. '
-                'Isso não confirma entrega na caixa de entrada.'
+                'O servidor SMTP aceitou a mensagem para processamento. Isso não confirma entrega na caixa de entrada.'
             )
         )
 
@@ -155,9 +171,7 @@ class Command(BaseCommand):
             'EMAIL_USE_SSL': str(settings.EMAIL_USE_SSL).lower(),
             'DEFAULT_FROM_EMAIL': settings.DEFAULT_FROM_EMAIL,
         }
-        defined_dotenv_settings = [
-            name for name in SMTP_SETTINGS if name in dotenv and dotenv[name] is not None
-        ]
+        defined_dotenv_settings = [name for name in SMTP_SETTINGS if name in dotenv and dotenv[name] is not None]
         mismatches = _dotenv_mismatches(dotenv, effective_settings)
 
         sender_matches = bool(sender and sender == authenticated_user)
@@ -187,10 +201,7 @@ class Command(BaseCommand):
             f'  Credenciais configuradas: '
             f'{"sim" if settings.EMAIL_HOST_USER.strip() and settings.EMAIL_HOST_PASSWORD else "não"}'
         )
-        self.stdout.write(
-            '  Remetente corresponde ao usuário SMTP: '
-            f'{"sim" if sender_matches else "não"}'
-        )
+        self.stdout.write(f'  Remetente corresponde ao usuário SMTP: {"sim" if sender_matches else "não"}')
         self.stdout.write('  Origem efetiva das configurações (valores omitidos):')
         for name in SMTP_SETTINGS:
             self.stdout.write(f'    {name}: {_configuration_source(name, dotenv)}')

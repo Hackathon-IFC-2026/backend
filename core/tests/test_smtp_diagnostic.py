@@ -39,10 +39,47 @@ class SMTPDiagnosticCommandTests(SimpleTestCase):
         diagnostic_message = connection.send_messages.call_args.args[0][0]
         assert diagnostic_message.to == ['authorized@example.net']
         assert diagnostic_message.from_email == 'sender@example.com'
+        assert 'Tarefa de demonstração' in diagnostic_message.body
+        assert 'Alex Demonstração' in diagnostic_message.body
+        assert 'Quadro de demonstração' in diagnostic_message.body
+        assert len(diagnostic_message.alternatives) == 1
+        html_body = diagnostic_message.alternatives[0][0]
+        assert diagnostic_message.alternatives[0][1] == 'text/html'
+        assert '#1A3721' in html_body
+        assert 'KANDO' in html_body
+        assert 'Aceitar convite' in html_body
+        assert 'Recusar convite' in html_body
+        assert 'https://kando.example/convites/00000000-0000-0000-0000-000000000000/aceitar' in html_body
+        assert 'https://kando.example/convites/00000000-0000-0000-0000-000000000000/recusar' in html_body
+        assert 'kando.example' in diagnostic_message.body
         assert 'aceitou a mensagem' in output.getvalue()
         assert 'authorized@example.net' not in output.getvalue()
         assert 'smtp-diagnostic-secret' not in output.getvalue()
         connection.close.assert_called_once_with()
+
+    @patch('core.management.commands.diagnose_smtp.get_connection')
+    def test_send_test_email_command_accepts_positional_recipient(self, get_connection):
+        connection = get_connection.return_value
+        connection.open.return_value = True
+        connection.send_messages.return_value = 1
+        output = StringIO()
+
+        call_command(
+            'enviar_email_teste',
+            'authorized@example.net',
+            stdout=output,
+        )
+
+        connection.open.assert_called_once_with()
+        connection.send_messages.assert_called_once()
+        message = connection.send_messages.call_args.args[0][0]
+        assert message.to == ['authorized@example.net']
+        assert len(message.alternatives) == 1
+        html_body = message.alternatives[0][0]
+        assert '#1A3721' in html_body
+        assert 'Aceitar convite' in html_body
+        assert 'Recusar convite' in html_body
+        assert 'smtp-diagnostic-secret' not in output.getvalue()
 
 
 @override_settings(EMAIL_BACKEND='django.core.mail.backends.smtp.EmailBackend')
@@ -100,10 +137,7 @@ class PasswordResetSMTPStageTests(SimpleTestCase):
                     _send_reset_email('registered@example.com', '012345', 7)
 
         smtp_connection.close.assert_called_once_with()
-        assert any(
-            'stage=smtp_submission result=not_accepted' in log
-            for log in captured_logs.output
-        )
+        assert any('stage=smtp_submission result=not_accepted' in log for log in captured_logs.output)
 
     def test_recipient_refusal_logs_code_without_address_or_server_response(self):
         refused_address = 'private-recipient@example.net'

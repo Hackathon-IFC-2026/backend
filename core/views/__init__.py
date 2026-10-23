@@ -1,3 +1,4 @@
+from .boards import BoardViewSet as BoardViewSet
 from .password_reset import (
     PasswordResetConfirmView as PasswordResetConfirmView,
 )
@@ -7,6 +8,8 @@ from .password_reset import (
 from .password_reset import (
     PasswordResetVerifyView as PasswordResetVerifyView,
 )
+from .task_invitations import TaskInvitationViewSet as TaskInvitationViewSet
+from .tasks import TaskViewSet as TaskViewSet
 from .token import CustomTokenObtainPairView as CustomTokenObtainPairView
 from .token import CustomTokenRefreshView as CustomTokenRefreshView
 from .token import CustomTokenVerifyView as CustomTokenVerifyView

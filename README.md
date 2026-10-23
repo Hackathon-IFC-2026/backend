@@ -168,12 +168,30 @@ Os testes automatizados usam o backend de e-mail em memória e não precisam de 
 pdm run python manage.py diagnose_smtp --check-only
 ```
 
-O projeto carrega `.env` explicitamente a partir da raiz do repositório. Variáveis já fornecidas pelo processo/ambiente têm precedência sobre `.env`; o comando sinaliza divergências sem exibir valores de usuário, remetente ou senha. Para fazer um envio SMTP real, use somente um endereço que você controla ou tem autorização para testar:
+O projeto carrega `.env` explicitamente a partir da raiz do repositório. Variáveis já fornecidas pelo processo/ambiente têm precedência sobre `.env`; o comando sinaliza divergências sem exibir valores de usuário, remetente ou senha. Para fazer um envio SMTP real com a identidade visual do Kando, use somente um endereço que você controla ou tem autorização para testar:
 
 ```bash
-pdm run python manage.py diagnose_smtp --recipient endereco-de-teste-autorizado@example.com
+pdm run python manage.py enviar_email_teste endereco-de-teste-autorizado@example.com
+# ou execute sem argumento para informar o destinatário no prompt
+pdm run python manage.py enviar_email_teste
 ```
 
-O comando verifica backend, host, porta, credenciais configuradas, TLS/SSL e correspondência entre remetente e usuário autenticado. Ele envia uma mensagem de diagnóstico simples, não um código de recuperação. A aceitação pelo SMTP significa que o servidor aceitou a mensagem para processamento; não comprova entrega na caixa de entrada. Confira spam, promoções, filtros e possíveis mensagens de devolução. Em contas Google Workspace, um administrador pode consultar o Email Log Search no Admin Console; contas pessoais Gmail não oferecem o mesmo log de rastreamento de entrega para o destinatário.
+O comando reutiliza exatamente os templates HTML/texto dos convites reais, com dados identificados como demonstração e links em `kando.example` (domínio reservado que não aponta para o backend), sem criar convites nem alterar o banco. `diagnose_smtp --recipient endereco-de-teste-autorizado@example.com` continua disponível e envia o mesmo conteúdo multipart. Ambos verificam backend, host, porta, credenciais configuradas, TLS/SSL e correspondência entre remetente e usuário autenticado; não exibem destinatário nem credenciais. A aceitação pelo SMTP significa que o servidor aceitou a mensagem para processamento; não comprova entrega na caixa de entrada. Confira spam, promoções, filtros e possíveis mensagens de devolução. Em contas Google Workspace, um administrador pode consultar o Email Log Search no Admin Console; contas pessoais Gmail não oferecem o mesmo log de rastreamento de entrega para o destinatário.
 
 Os logs da recuperação distinguem preparação, aceitação pelo backend e falha, sem registrar endereço, código ou credenciais. Quando uma conta não está disponível, `stage=account result=unavailable` registra internamente `reason=not_found`, `reason=inactive` ou `reason=ambiguous`; a resposta pública permanece genérica. Um resultado `accepted` não é confirmação de entrega final.
+
+### Quadros, tarefas e convites
+
+O backend fornece uma API autenticada por JWT para quadros, tarefas e convites. O proprietário do quadro pode criar tarefas; o criador da tarefa ou o proprietário do quadro pode convidar outros usuários existentes e ativos. Tarefas podem ter responsável e participantes. Um usuário só entra na relação de participantes quando aceita explicitamente um convite pendente.
+
+Configure `FRONTEND_BASE_URL` no ambiente de execução com a origem HTTPS real do frontend (sem caminho final), por exemplo, a URL de produção da aplicação. Essa configuração é obrigatória para enviar convites; o backend recusa URLs que não usem HTTPS. `FRONTEND_URLS` continua sendo a lista de origens CORS e não é substituída por essa configuração. O remetente usa `DEFAULT_FROM_EMAIL` (para este sistema, `kando.gerenciador@gmail.com`) e o destinatário é sempre o e-mail cadastrado do usuário convidado.
+
+Endpoints (prefixo `/api/`; todos exigem JWT):
+
+- `GET/POST /api/boards/`: listar quadros acessíveis ou criar um quadro (`title`, opcionalmente `description`). O proprietário é definido pelo usuário autenticado.
+- `GET/POST /api/tasks/` e `GET/PATCH/PUT/DELETE /api/tasks/{id}/`: consultar/criar/gerenciar tarefas. Uma tarefa tem `board`, `title`, opcional `description`, `status` (`todo`, `in_progress`, `done`), `assignee` opcional e `due_at` opcional. `created_by` e `participants` não podem ser definidos diretamente pelo cliente.
+- `POST /api/invitations/` com `{"task": 123, "email": "usuario-cadastrado@example.com"}`: cria e envia convite. Apenas criador da tarefa/dono do quadro pode convidar; destinatário precisa ser usuário ativo existente. Convites pendentes duplicados retornam `409`.
+- `GET /api/invitations/pending/`: lista os convites pendentes e não expirados do usuário autenticado. `GET /api/invitations/` lista o histórico dele.
+- `POST /api/invitations/{uuid}/accept/` e `POST /api/invitations/{uuid}/decline/`: responder autenticado. Apenas o destinatário vê o convite; aceite inclui o usuário nos participantes, recusa não o inclui. Respostas repetidas retornam `409`; convites expirados retornam `410`.
+
+Os links do e-mail são páginas de confirmação no frontend: `/convites/{uuid}/aceitar` e `/convites/{uuid}/recusar`. O frontend deve mostrar diretamente a confirmação correspondente, pedir login quando necessário preservando a rota de retorno e só então chamar o endpoint POST correspondente com o JWT. Abrir ou pré-visualizar o link não altera o convite. Este repositório contém o backend; as páginas Vue precisam ser implementadas/integradas no projeto de frontend.
