@@ -26,17 +26,25 @@ No painel Render:
    `requirements.txt`.
 5. Configure o build command como `./build.sh` e o start command como
    `gunicorn app.wsgi:application --bind 0.0.0.0:$PORT --log-file -` (também
-   presente no `Procfile`). O build
-   instala dependências e coleta estáticos, mas não executa migrations.
-6. Configure o Pre-Deploy Command do serviço para
-   `python manage.py migrate`. Ele deve executar somente depois de revisar o
-   código/migrations e antes de servir a nova versão. Se o plano do Render não
-   oferecer Pre-Deploy Command, use o Shell do serviço e execute
-   `python manage.py migrate` de forma explícita, depois do backup.
+   presente no `Procfile`). O `build.sh` instala dependências, coleta estáticos
+   e executa `python manage.py migrate --noinput` usando o `DATABASE_URL`
+   disponível ao serviço durante o build. Não configure também outra etapa de
+   migration no Pre-Deploy para o mesmo deploy.
+6. Se o build atual falhou antes de receber esta alteração, selecione a branch
+   correta em **Settings → Build & Deploy → Branch** e faça um deploy após
+   enviar a alteração ao GitHub. Acompanhe os logs de build e confirme a linha
+   de conclusão das migrations antes de testar a aplicação.
 
 Migrations criam/altera(m) estrutura; não transferem registros. `0012` cria as
-tabelas de quadros, tarefas e convites e deve ser aplicada pelo processo acima.
-Não use `--fake`.
+tabelas `core_board`, `core_task` e `core_taskinvitation`. Não use `--fake`.
+Antes do deploy, confirme que `DATABASE_URL` no serviço está vinculada ao
+PostgreSQL correto e que há um snapshot recente. O comando `migrate` aplica as
+migrations pendentes nesse banco, sem importar fixture e sem apagar registros.
+Antes do primeiro deploy com a etapa automática de migrations, abra o Shell do
+serviço e confira `python manage.py showmigrations core` e
+`python manage.py migrate --plan`. Se houver migrations anteriores a `0012`
+pendentes, revise o plano e os respectivos backups antes de continuar; não
+presuma que somente a criação de `core_task` está pendente.
 
 ## Preparar uma exportação local
 
