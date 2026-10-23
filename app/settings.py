@@ -3,6 +3,7 @@ from datetime import timedelta
 from pathlib import Path
 
 import dj_database_url
+from django.core.exceptions import ImproperlyConfigured
 from dotenv import load_dotenv
 
 # ============================================================
@@ -20,7 +21,7 @@ load_dotenv(ENV_FILE)
 
 SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure')
 DEBUG = os.getenv('DEBUG', 'True').lower() == 'true'
-ALLOWED_HOSTS = ['*']
+ALLOWED_HOSTS = [host.strip() for host in os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',') if host.strip()]
 
 # ============================================================
 # E-mail
@@ -156,6 +157,15 @@ DATABASES = {
         conn_health_checks=True,
     )
 }
+if not DEBUG:
+    if SECRET_KEY == 'django-insecure':
+        raise ImproperlyConfigured('Set a private SECRET_KEY when DEBUG is False.')
+    if not ALLOWED_HOSTS or '*' in ALLOWED_HOSTS:
+        raise ImproperlyConfigured('Set explicit ALLOWED_HOSTS when DEBUG is False.')
+    if not os.getenv('DATABASE_URL'):
+        raise ImproperlyConfigured('DATABASE_URL must be configured when DEBUG is False.')
+    if DATABASES['default']['ENGINE'] != 'django.db.backends.postgresql':
+        raise ImproperlyConfigured('Production must use PostgreSQL through DATABASE_URL.')
 
 # ============================================================
 # Validação de senhas

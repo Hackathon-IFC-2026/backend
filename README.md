@@ -93,6 +93,18 @@ Esse projeto utiliza os seguintes pacotes e tecnologias:
 
 Este projeto está licenciado sob a [Licença GPL](https://www.gnu.org/licenses/gpl-3.0.html), uma licença de software livre.
 
+## PostgreSQL no Render e transferência dos dados
+
+O SQLite continua sendo o padrão local. Em produção (`DEBUG=False`), `DATABASE_URL`
+é obrigatória e precisa configurar PostgreSQL. A dependência `psycopg2-binary`
+já está no manifesto, lockfile e requirements.
+
+Veja [o procedimento de configuração do Render, migrations, backup, exportação,
+importação protegida e validação](./docs/render-postgres-data-transfer.md).
+O comando `export_local_data` gera backup do SQLite e fixture; `import_local_data`
+recusa bancos que não sejam PostgreSQL, migrations pendentes e destinos com
+registros. Nenhuma transferência ao Render é feita automaticamente pelo build.
+
 ## Recuperação de senha por e-mail
 
 O backend implementa o fluxo de solicitação, validação e redefinição com código numérico de seis dígitos. O código é armazenado como HMAC, expira em 10 minutos, permite até cinco tentativas e é invalidado após uso. Há limite por conta de três solicitações por hora, intervalo mínimo de um minuto entre envios e throttling por IP (10 solicitações, 20 validações e 10 confirmações por hora). O limite por conta restringe o envio real de e-mails mesmo quando várias solicitações são feitas a partir do mesmo IP.
