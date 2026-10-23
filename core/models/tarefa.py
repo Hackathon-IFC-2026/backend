@@ -11,11 +11,11 @@ class Tarefa(models.Model):
     criada_em = models.DateTimeField(auto_now_add=True, verbose_name='Criada em')
     atualizada_em = models.DateTimeField(auto_now=True, verbose_name='Atualizada em')
     posicao = models.IntegerField(verbose_name='Posição', default=0)
-    
+
 
     class Meta:
         verbose_name = 'Tarefa'
         verbose_name_plural = 'Tarefas'
 
     def __str__(self):
-        return self.nome
+        return self.titulo
