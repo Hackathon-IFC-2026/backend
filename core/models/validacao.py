@@ -36,6 +36,7 @@ class Validacao(models.Model):
     medida = models.CharField(max_length=20, null=True, blank=True)
     nota = models.DecimalField(max_digits=3, decimal_places=1, null=True, blank=True)
     avaliacao = models.TextField(null=True, blank=True)
+    und_med = models.CharField(max_length=45, blank=True, null=True)
 
 
     class Meta:
