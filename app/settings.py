@@ -158,7 +158,7 @@ DATABASES = {
     )
 }
 if not DEBUG:
-    if SECRET_KEY == 'django-insecure':
+    if not SECRET_KEY or SECRET_KEY == 'django-insecure':
         raise ImproperlyConfigured('Set a private SECRET_KEY when DEBUG is False.')
     if not ALLOWED_HOSTS or '*' in ALLOWED_HOSTS:
         raise ImproperlyConfigured('Set explicit ALLOWED_HOSTS when DEBUG is False.')

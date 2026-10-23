@@ -10,19 +10,25 @@ banco SQLite efêmero.
 
 No painel Render:
 
-1. Confirme que o PostgreSQL correto está vinculado ao serviço web `backend-mknu`.
-2. Nas variáveis de ambiente do serviço, configure `DEBUG=False`, uma `SECRET_KEY`
+1. Abra o Dashboard e escolha **New + → PostgreSQL**. Defina nome e região
+   próximos ao serviço web, escolha um plano adequado e crie o banco. Confirme
+   no painel que ele está disponível e que há um backup/snapshot antes de
+   qualquer alteração.
+2. Abra o serviço web `backend-mknu` e vincule-o ao PostgreSQL recém-criado (ou
+   configure `DATABASE_URL` como referência à Internal Database URL do banco).
+   Não use a URL pública do backend como URL do banco.
+3. Nas variáveis de ambiente do serviço, configure `DEBUG=False`, uma `SECRET_KEY`
    própria como secret, `ALLOWED_HOSTS=backend-mknu.onrender.com` e `DATABASE_URL`
    usando a URL interna/variável vinculada ao PostgreSQL do Render. Não copie a
    URL real para este repositório. Se o serviço também receber tráfego por outro
    domínio próprio, inclua esse host na lista separada por vírgulas.
-3. O projeto já declara `psycopg2-binary` no `pyproject.toml`, `pdm.lock` e
+4. O projeto já declara `psycopg2-binary` no `pyproject.toml`, `pdm.lock` e
    `requirements.txt`.
-4. Configure o build command como `./build.sh` e o start command como
+5. Configure o build command como `./build.sh` e o start command como
    `gunicorn app.wsgi:application --bind 0.0.0.0:$PORT --log-file -` (também
    presente no `Procfile`). O build
    instala dependências e coleta estáticos, mas não executa migrations.
-5. Configure o Pre-Deploy Command do serviço para
+6. Configure o Pre-Deploy Command do serviço para
    `python manage.py migrate`. Ele deve executar somente depois de revisar o
    código/migrations e antes de servir a nova versão. Se o plano do Render não
    oferecer Pre-Deploy Command, use o Shell do serviço e execute
@@ -95,7 +101,8 @@ Com o alvo PostgreSQL confirmado, snapshot disponível e destino vazio:
 ```bash
 pdm run python manage.py import_local_data \
   "$transfer_dir/kando-local.json" \
-  --confirm-empty-destination
+  --confirm-empty-destination \
+  --confirm-remote-backup
 pdm run python manage.py import_local_data --check-only
 ```
 
@@ -106,6 +113,10 @@ ou colisão reverte a transação. Os IDs exportados são mantidos; o `loaddata`
 Django reseta as sequências compatíveis do PostgreSQL. Depois, a contagem por
 modelo deve corresponder à exportação; o comando também valida essas contagens e
 falha/rollback se divergirem.
+
+`--confirm-remote-backup` confirma que você criou o snapshot no painel; o
+comando não cria nem valida esse snapshot. `--confirm-empty-destination`
+também é obrigatório e não ignora a checagem real das tabelas.
 
 Não importe um fixture integral em uma base já povoada. Nesse caso, faça um
 plano de merge específico com backup e mapeamento explícito de usuários e

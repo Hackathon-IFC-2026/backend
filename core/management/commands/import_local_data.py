@@ -100,18 +100,25 @@ class Command(BaseCommand):
             action='store_true',
             help='Confirma a importação somente se todas as tabelas de dados estiverem vazias.',
         )
+        parser.add_argument(
+            '--confirm-remote-backup',
+            action='store_true',
+            help='Confirma que um snapshot/backup recente do banco remoto foi criado.',
+        )
 
     def handle(self, *args, **options):
         if connection.vendor != 'postgresql':
             raise CommandError('A importação exige PostgreSQL; nenhum dado foi alterado.')
         if options['check_only']:
-            if options['confirm_empty_destination']:
-                raise CommandError('Não combine --check-only com --confirm-empty-destination.')
+            if options['confirm_empty_destination'] or options['confirm_remote_backup']:
+                raise CommandError('Não combine --check-only com flags de confirmação.')
             self._check_migrations()
             self.stdout.write('Banco de destino: PostgreSQL.')
             self._write_counts(_record_counts())
             return
 
+        if not options['confirm_remote_backup']:
+            raise CommandError('Crie um snapshot do PostgreSQL e confirme com --confirm-remote-backup.')
         if not options['fixture']:
             raise CommandError('Informe o caminho do fixture criado por export_local_data.')
         if not options['confirm_empty_destination']:

@@ -1,6 +1,7 @@
 from io import StringIO
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from unittest.mock import patch
 
 from django.core.management import call_command
 from django.core.management.base import CommandError
@@ -39,6 +40,16 @@ class DatabaseTransferCommandTests(SimpleTestCase):
         )
 
         assert _validate_fixture(fixture_path) == {'core.user': 1, 'core.board': 1}
+
+    @patch('core.management.commands.import_local_data.connection.vendor', 'postgresql')
+    def test_import_requires_explicit_remote_backup_confirmation(self):
+        with self.assertRaisesMessage(CommandError, 'Crie um snapshot'):
+            call_command(
+                'import_local_data',
+                'unused-fixture.json',
+                '--confirm-empty-destination',
+                stdout=StringIO(),
+            )
 
     def create_temp_file(self, name, content):
         path = Path(self.temporary_directory.name) / name
