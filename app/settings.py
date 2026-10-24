@@ -90,9 +90,10 @@ GOOGLE_DRIVE_FRONTEND_REDIRECT_URL = os.getenv('GOOGLE_DRIVE_FRONTEND_REDIRECT_U
 GOOGLE_DRIVE_TOKEN_ENCRYPTION_KEY = os.getenv('GOOGLE_DRIVE_TOKEN_ENCRYPTION_KEY', '')
 
 CORS_ALLOWED_ORIGINS = FRONTEND_URLS
-CORS_ALLOW_ALL_ORIGINS = False
+# JWT is sent explicitly in Authorization; browser cookies are not used by the SPA.
+CORS_ALLOW_ALL_ORIGINS = True
 CSRF_TRUSTED_ORIGINS = FRONTEND_URLS
-CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOW_CREDENTIALS = False
 
 # ============================================================
 # Aplicações instaladas

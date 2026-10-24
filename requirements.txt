@@ -13,11 +13,8 @@ click==8.4.2
 cloudinary==1.46.3
 colorama==0.4.6; sys_platform == "win32" or platform_system == "Windows"
 cryptography==50.0.2
-<<<<<<< HEAD
 decorator==5.3.1
 dill==0.4.1
-=======
->>>>>>> origin/dev
 distlib==0.4.3
 dj-database-url==3.1.2
 django==5.2.15
@@ -53,7 +50,6 @@ mccabe==0.7.0
 nodeenv==1.10.0
 oauthlib==4.0.0
 opentelemetry-api==1.45.1
-<<<<<<< HEAD
 parso==0.8.7
 pexpect==4.9.0; sys_platform != "win32" and sys_platform != "emscripten"
 pillow==12.2.0
@@ -65,14 +61,6 @@ protobuf==7.36.2
 psycopg2-binary==2.9.13
 ptyprocess==0.7.0; sys_platform != "win32" and sys_platform != "emscripten"
 pure-eval==0.2.3
-=======
-pillow==12.2.0
-platformdirs==4.10.0
-pre-commit==4.6.0
-proto-plus==1.29.0
-protobuf==7.36.2
-psycopg2-binary==2.9.13
->>>>>>> origin/dev
 pyasn1==0.6.4
 pyasn1-modules==0.4.2
 pycparser==3.11; implementation_name != "PyPy" and platform_python_implementation != "PyPy"
@@ -94,13 +82,10 @@ ruff==0.15.20
 setuptools==82.0.1
 six==1.17.0
 sqlparse==0.5.5
-<<<<<<< HEAD
 stack-data==0.6.3
 tomli==2.4.1; python_version < "3.11"
 tomlkit==0.15.0
 traitlets==5.15.1
-=======
->>>>>>> origin/dev
 typing-extensions==4.15.0
 tzdata==2026.2; sys_platform == "win32"
 uritemplate==4.2.0
