@@ -14,3 +14,4 @@ from .task import Task as Task
 from .task_invitation import TaskInvitation as TaskInvitation
 from .user import User as User
 from .validacao import Validacao as Validacao
+
