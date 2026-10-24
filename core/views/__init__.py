@@ -5,3 +5,4 @@ from .comentario import ComentarioViewSet
 from .material_apoio import MaterialApoioViewSet
 from .tarefa import TarefaViewSet
 from .projeto import ProjetoViewSet
+from .participante_projeto import ParticipanteProjetoViewSet

@@ -4,3 +4,4 @@ from .checklist import Checklist
 from .comentario import Comentario
 from .material_apoio import MaterialApoio
 from .tarefa import Tarefa
+from .participante_projeto import ParticipanteProjeto

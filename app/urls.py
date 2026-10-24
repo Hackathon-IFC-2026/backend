@@ -17,6 +17,7 @@ from core.views import (
     MaterialApoioViewSet,
     TarefaViewSet,
     ProjetoViewSet,
+    ParticipanteProjetoViewSet,
 )
 
 
@@ -27,6 +28,7 @@ router.register(r'comentarios', ComentarioViewSet, basename='comentarios')
 router.register(r'materiais-apoio', MaterialApoioViewSet, basename='materiais-apoio')
 router.register(r'tarefas', TarefaViewSet, basename='tarefas')
 router.register(r'projetos', ProjetoViewSet, basename='projetos')
+router.register(r'participantes-projeto', ParticipanteProjetoViewSet, basename='participantes-projeto')
 
 
 urlpatterns = [

@@ -6,7 +6,7 @@ class Projeto(models.Model):
     descricao = models.TextField(verbose_name='Descrição do Projeto')
     criado_em = models.DateTimeField(auto_now_add=True, verbose_name='Criado em')
     atualizado_em = models.DateTimeField(auto_now=True, verbose_name='Atualizado em')
-    criador = models.ForeignKey(
+    criado_por = models.ForeignKey(
         'core.User', on_delete=models.PROTECT, related_name='projetos_criados', verbose_name='Criador do Projeto'
     )
 
