@@ -28,6 +28,7 @@ class PasswordResetAPITests(APITestCase):
     max_attempts = 5
     max_requests_per_account = 3
     max_requests_per_ip = 10
+    code_length = 6
     expected_message_count_after_resend = 2
     sha256_digest_length = 64
 
@@ -76,6 +77,9 @@ class PasswordResetAPITests(APITestCase):
         assert any('stage=account result=eligible' in item for item in captured_logs.output)
         assert any('stage=message result=prepared' in item for item in captured_logs.output)
         assert any('result=accepted_by_backend' in item for item in captured_logs.output)
+        assert all('flow_id=' in item for item in captured_logs.output)
+        assert self.email not in str(captured_logs.output)
+        assert '012345' not in str(captured_logs.output)
 
     def test_unknown_email_has_the_same_generic_response_without_sending(self):
         known_response = self.request_code()
@@ -294,9 +298,30 @@ class PasswordResetAPITests(APITestCase):
         self.user.refresh_from_db()
         assert self.user.check_password(self.initial_password)
 
-    def test_login_works_only_with_the_new_password_after_reset(self):
+    def test_full_password_reset_flow_sends_code_verifies_resets_and_allows_login(self):
         self.request_code()
-        self.client.post(self.confirm_url, self.confirm_payload(), format='json')
+        assert len(mail.outbox) == 1
+        message = mail.outbox[0]
+        assert message.to == [self.email]
+        code = next(
+            line.strip()
+            for line in message.body.splitlines()
+            if len(line.strip()) == self.code_length and line.strip().isdigit()
+        )
+
+        verify_response = self.client.post(
+            self.verify_url,
+            {'email': self.email, 'code': code},
+            format='json',
+        )
+        assert verify_response.status_code == status.HTTP_200_OK
+
+        confirm_response = self.client.post(
+            self.confirm_url,
+            self.confirm_payload(code=code),
+            format='json',
+        )
+        assert confirm_response.status_code == status.HTTP_200_OK
 
         old_login = self.client.post(
             '/api/token/',
@@ -341,10 +366,175 @@ class PasswordResetAPITests(APITestCase):
 
         assert response.status_code == status.HTTP_202_ACCEPTED
         assert any(
-            'stage=template account_id=' in message and 'exception=TemplateDoesNotExist' in message
+            'stage=template result=failed reason=render_error exception=TemplateDoesNotExist' in message
             for message in captured_logs.output
         )
         assert not PasswordResetChallenge.objects.filter(user=self.user).exists()
+
+
+class PasswordResetRequestValidationTests(APITestCase):
+    def test_get_is_not_allowed_for_password_reset_request(self):
+        response = self.client.get(
+            '/api/auth/password-reset/request/',
+            HTTP_HOST='127.0.0.1',
+        )
+
+        assert response.status_code == status.HTTP_405_METHOD_NOT_ALLOWED
+        assert response['Allow'] == 'POST, OPTIONS'
+
+    def test_missing_email_is_rejected_with_field_error(self):
+        response = self.client.post(
+            '/api/auth/password-reset/request/',
+            {},
+            format='json',
+            HTTP_HOST='127.0.0.1',
+        )
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert response.data == {'email': ['Este campo é obrigatório.']}
+
+
+@override_settings(EMAIL_BACKEND='django.core.mail.backends.smtp.EmailBackend')
+class PasswordResetSMTPRequestTests(APITestCase):
+    request_url = '/api/auth/password-reset/request/'
+    email = 'smtp-request@example.com'
+
+    def setUp(self):
+        cache.clear()
+        self.user = User.objects.create_user(self.email, 'InitialPassword!123')
+
+    def test_request_submits_recovery_message_to_registered_address_over_smtp(self):
+        with (
+            patch('core.services.password_reset.secrets.randbelow', return_value=12345),
+            patch('core.services.password_reset.get_connection') as get_connection,
+            patch(
+                'core.services.password_reset.EmailMultiAlternatives.send',
+                autospec=True,
+                return_value=1,
+            ) as send_email,
+        ):
+            smtp_connection = get_connection.return_value
+            with self.assertLogs('core.services.password_reset', level='INFO') as captured_logs:
+                response = self.client.post(self.request_url, {'email': self.email}, format='json')
+
+        assert response.status_code == status.HTTP_202_ACCEPTED
+        smtp_connection.open.assert_called_once_with()
+        smtp_connection.close.assert_called_once_with()
+        send_email.assert_called_once()
+        message = send_email.call_args.args[0]
+        assert message.to == [self.user.email]
+        assert message.connection is smtp_connection
+        assert any('stage=email_backend result=submission_started' in item for item in captured_logs.output)
+        assert any('result=accepted_by_smtp' in item for item in captured_logs.output)
+        assert '012345' not in str(captured_logs.output)
+        assert self.user.email not in str(captured_logs.output)
+
+
+class PasswordResetThrottleEnvironmentTests(APITestCase):
+    local_repeat_count = 4
+    endpoints_and_limits = (
+        ('/api/auth/password-reset/request/', 10),
+        ('/api/auth/password-reset/verify/', 20),
+        ('/api/auth/password-reset/confirm/', 10),
+    )
+
+    def setUp(self):
+        cache.clear()
+
+    @override_settings(DEBUG=True, LOCAL_DEVELOPMENT=True)
+    def test_local_development_opt_in_allows_repeated_requests_to_all_endpoints(self):
+        for endpoint, rate_limit in self.endpoints_and_limits:
+            cache.clear()
+            responses = [
+                self.client.post(
+                    endpoint,
+                    {},
+                    format='json',
+                    HTTP_HOST='127.0.0.1',
+                )
+                for _ in range(rate_limit + 1)
+            ]
+
+            assert all(response.status_code != status.HTTP_429_TOO_MANY_REQUESTS for response in responses)
+
+    @override_settings(
+        DEBUG=True,
+        LOCAL_DEVELOPMENT=True,
+        EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend',
+    )
+    def test_local_loopback_allows_repeated_email_requests_without_account_cooldown(self):
+        email = 'local-throttle-test@example.com'
+        user = User.objects.create_user(email, 'InitialPassword!123')
+
+        with patch(
+            'core.services.password_reset.secrets.randbelow',
+            side_effect=range(self.local_repeat_count),
+        ):
+            responses = [
+                self.client.post(
+                    '/api/auth/password-reset/request/',
+                    {'email': email},
+                    format='json',
+                    REMOTE_ADDR='127.0.0.1',
+                    HTTP_HOST='127.0.0.1',
+                )
+                for _ in range(self.local_repeat_count)
+            ]
+
+        assert all(response.status_code == status.HTTP_202_ACCEPTED for response in responses)
+        assert len(mail.outbox) == self.local_repeat_count
+        assert (
+            PasswordResetChallenge.objects.get(user=user).requests_in_window
+            == self.local_repeat_count
+        )
+
+    @override_settings(DEBUG=True, LOCAL_DEVELOPMENT=True)
+    def test_local_opt_in_does_not_bypass_throttle_for_non_loopback_clients(self):
+        for endpoint, rate_limit in self.endpoints_and_limits:
+            cache.clear()
+            responses = [
+                self.client.post(
+                    endpoint,
+                    {},
+                    format='json',
+                    REMOTE_ADDR='192.0.2.1',
+                    HTTP_HOST='127.0.0.1',
+                )
+                for _ in range(rate_limit + 1)
+            ]
+
+            assert all(
+                response.status_code != status.HTTP_429_TOO_MANY_REQUESTS
+                for response in responses[:-1]
+            )
+            assert responses[-1].status_code == status.HTTP_429_TOO_MANY_REQUESTS
+
+    @override_settings(DEBUG=True, LOCAL_DEVELOPMENT=False)
+    def test_debug_without_local_opt_in_keeps_throttle_active(self):
+        for endpoint, rate_limit in self.endpoints_and_limits:
+            cache.clear()
+            responses = [
+                self.client.post(endpoint, {}, format='json')
+                for _ in range(rate_limit + 1)
+            ]
+
+            assert responses[-1].status_code == status.HTTP_429_TOO_MANY_REQUESTS
+
+    @override_settings(DEBUG=False, LOCAL_DEVELOPMENT=True)
+    def test_production_debug_off_keeps_throttle_active_on_all_endpoints(self):
+        for endpoint, rate_limit in self.endpoints_and_limits:
+            cache.clear()
+            responses = [
+                self.client.post(endpoint, {}, format='json')
+                for _ in range(rate_limit + 1)
+            ]
+
+            assert all(
+                response.status_code != status.HTTP_429_TOO_MANY_REQUESTS
+                for response in responses[:-1]
+            )
+            assert responses[-1].status_code == status.HTTP_429_TOO_MANY_REQUESTS
+            assert int(responses[-1]['Retry-After']) > 0
 
 
 @override_settings(

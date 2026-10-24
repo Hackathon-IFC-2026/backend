@@ -30,7 +30,7 @@ class _EmailDeliveryFailed(Exception):
     """Abort challenge persistence when the email cannot be prepared or sent."""
 
 
-def _log_email_failure(stage, account_id, exc):
+def _log_email_failure(stage, flow_id, exc):
     smtp_code = getattr(exc, 'smtp_code', None)
     errno = getattr(exc, 'errno', None)
     refused_recipients = getattr(exc, 'recipients', {})
@@ -48,10 +48,11 @@ def _log_email_failure(stage, account_id, exc):
     if not isinstance(errno, int):
         errno = None
     logger.error(
-        'password_reset stage=%s result=failed account_id=%s exception=%s '
+        'password_reset flow_id=%s stage=%s result=failed reason=%s exception=%s '
         'smtp_code=%s errno=%s refused_recipient_count=%s refused_recipient_codes=%s',
+        flow_id,
         stage,
-        account_id,
+        stage,
         type(exc).__name__,
         smtp_code,
         errno,
@@ -60,11 +61,11 @@ def _log_email_failure(stage, account_id, exc):
     )
 
 
-def _close_smtp_connection(connection, account_id):
+def _close_smtp_connection(connection, flow_id):
     try:
         connection.close()
     except (OSError, smtplib.SMTPException) as exc:
-        _log_email_failure('smtp_close', account_id, exc)
+        _log_email_failure('smtp_close', flow_id, exc)
 
 
 def _active_user_for_email(email, *, lock=False):
@@ -92,15 +93,15 @@ def _code_digest(user, code, created_at):
     ).hexdigest()
 
 
-def _send_reset_email(email, code, account_id):
+def _send_reset_email(email, code, flow_id):
     context = {'code': code, 'expires_in_minutes': int(CODE_LIFETIME.total_seconds() // 60)}
     try:
         text_body = render_to_string('core/emails/password_reset.txt', context)
         html_body = render_to_string('core/emails/password_reset.html', context)
     except (TemplateDoesNotExist, TemplateSyntaxError) as exc:
         logger.error(
-            'password_reset stage=template account_id=%s exception=%s',
-            account_id,
+            'password_reset flow_id=%s stage=template result=failed reason=render_error exception=%s',
+            flow_id,
             type(exc).__name__,
         )
         raise _EmailDeliveryFailed from exc
@@ -112,7 +113,7 @@ def _send_reset_email(email, code, account_id):
         to=[email],
     )
     message.attach_alternative(html_body, 'text/html')
-    logger.info('password_reset stage=message result=prepared account_id=%s', account_id)
+    logger.info('password_reset flow_id=%s stage=message result=prepared', flow_id)
 
     smtp_connection = None
     if settings.EMAIL_BACKEND == SMTP_BACKEND:
@@ -121,52 +122,56 @@ def _send_reset_email(email, code, account_id):
             smtp_connection.open()
         except (OSError, smtplib.SMTPException, ImproperlyConfigured, ValueError) as exc:
             if smtp_connection is not None:
-                _close_smtp_connection(smtp_connection, account_id)
-            _log_email_failure('smtp_connection_or_authentication', account_id, exc)
+                _close_smtp_connection(smtp_connection, flow_id)
+            _log_email_failure('smtp_connection_or_authentication', flow_id, exc)
             raise _EmailDeliveryFailed from exc
         message.connection = smtp_connection
 
+    logger.info(
+        'password_reset flow_id=%s stage=email_backend result=submission_started backend=%s',
+        flow_id,
+        settings.EMAIL_BACKEND,
+    )
     try:
         sent_count = message.send(fail_silently=False)
     except (OSError, smtplib.SMTPException, ImproperlyConfigured, ValueError) as exc:
         stage = 'smtp_submission' if smtp_connection is not None else 'email_backend'
-        _log_email_failure(stage, account_id, exc)
+        _log_email_failure(stage, flow_id, exc)
         raise _EmailDeliveryFailed from exc
     finally:
         if smtp_connection is not None:
-            _close_smtp_connection(smtp_connection, account_id)
+            _close_smtp_connection(smtp_connection, flow_id)
 
     if sent_count != 1:
         stage = 'smtp_submission' if smtp_connection is not None else 'email_backend'
         logger.error(
-            'password_reset stage=%s result=not_accepted account_id=%s',
+            'password_reset flow_id=%s stage=%s result=not_accepted reason=backend_rejected_message',
+            flow_id,
             stage,
-            account_id,
         )
         raise _EmailDeliveryFailed
 
     result = 'accepted_by_smtp' if smtp_connection is not None else 'accepted_by_backend'
     logger.info(
-        'password_reset stage=email_backend result=%s account_id=%s backend=%s',
+        'password_reset flow_id=%s stage=email_backend result=%s backend=%s',
+        flow_id,
         result,
-        account_id,
         settings.EMAIL_BACKEND,
     )
     return True
 
 
-def _request_password_reset(email, now, request_context):
+def _request_password_reset(email, now, flow_id, *, allow_repeated_requests=False):
     with transaction.atomic():
         user, unavailable_reason = _active_user_for_email(email, lock=True)
         if user is None:
             logger.info(
-                'password_reset stage=account result=unavailable reason=%s',
+                'password_reset flow_id=%s stage=account result=unavailable reason=%s',
+                flow_id,
                 unavailable_reason,
             )
             return False
-        user_id = user.pk
-        request_context['account_id'] = user_id
-        logger.info('password_reset stage=account result=eligible account_id=%s', user_id)
+        logger.info('password_reset flow_id=%s stage=account result=eligible', flow_id)
 
         challenge = PasswordResetChallenge.objects.select_for_update().filter(user=user).first()
         if challenge is None:
@@ -176,17 +181,21 @@ def _request_password_reset(email, now, request_context):
         if now - challenge.request_window_started_at >= REQUEST_WINDOW:
             challenge.request_window_started_at = now
             challenge.requests_in_window = 0
-        elif challenge.requests_in_window >= MAX_REQUESTS_PER_WINDOW:
+        elif not allow_repeated_requests and challenge.requests_in_window >= MAX_REQUESTS_PER_WINDOW:
             logger.warning(
-                'password_reset stage=throttle account_id=%s reason=request_limit',
-                user_id,
+                'password_reset flow_id=%s stage=throttle result=blocked reason=request_limit',
+                flow_id,
             )
             return False
 
-        if challenge.requests_in_window and now - challenge.created_at < RESEND_INTERVAL:
+        if (
+            not allow_repeated_requests
+            and challenge.requests_in_window
+            and now - challenge.created_at < RESEND_INTERVAL
+        ):
             logger.warning(
-                'password_reset stage=throttle account_id=%s reason=resend_cooldown',
-                user_id,
+                'password_reset flow_id=%s stage=throttle result=blocked reason=resend_cooldown',
+                flow_id,
             )
             return False
 
@@ -199,35 +208,40 @@ def _request_password_reset(email, now, request_context):
         challenge.requests_in_window += 1
         challenge.save()
         logger.info(
-            'password_reset stage=challenge result=generated_and_saved_in_transaction account_id=%s',
-            user_id,
+            'password_reset flow_id=%s stage=challenge result=generated_and_saved_in_transaction',
+            flow_id,
         )
 
-        _send_reset_email(user.email, code, user_id)
+        _send_reset_email(user.email, code, flow_id)
     logger.info(
-        'password_reset stage=request result=challenge_committed_after_backend_acceptance account_id=%s',
-        user_id,
+        'password_reset flow_id=%s stage=request result=challenge_committed_after_backend_acceptance',
+        flow_id,
     )
     return True
 
 
-def request_password_reset(email):
-    logger.info('password_reset stage=request result=received')
+def request_password_reset(email, *, allow_repeated_requests=False):
+    flow_id = secrets.token_hex(8)
+    logger.info('password_reset flow_id=%s stage=request result=received', flow_id)
     now = timezone.now()
-    request_context = {}
     try:
-        return _request_password_reset(email, now, request_context)
+        return _request_password_reset(
+            email,
+            now,
+            flow_id,
+            allow_repeated_requests=allow_repeated_requests,
+        )
     except _EmailDeliveryFailed:
         logger.warning(
-            'password_reset stage=request result=challenge_rolled_back account_id=%s',
-            request_context.get('account_id'),
+            'password_reset flow_id=%s stage=request result=challenge_rolled_back reason=email_delivery_failed',
+            flow_id,
         )
         return False
     except DatabaseError as exc:
         logger.error(
-            'password_reset stage=database exception=%s account_id=%s',
+            'password_reset flow_id=%s stage=database result=failed exception=%s',
+            flow_id,
             type(exc).__name__,
-            request_context.get('account_id'),
         )
         return False
 

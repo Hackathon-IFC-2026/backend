@@ -99,6 +99,18 @@ O backend implementa o fluxo de solicitação, validação e redefinição com c
 
 O Django mantém os contadores de throttling no cache configurado. Sem configuração explícita de `CACHES`, usa o `LocMemCache` em memória e separado por processo, inclusive em produção. Em produção com múltiplos workers ou instâncias, configure um backend compartilhado para que os limites por IP sejam consistentes. Para repetir testes, os testes automatizados limpam o cache antes de cada caso; em desenvolvimento local isolado, também é possível reiniciar o servidor ou limpar esse cache pelo shell do Django. Não exponha uma operação de limpeza de cache pela API nem a execute em produção.
 
+Em desenvolvimento local, é possível desativar o throttling por IP e os limites de repetição por conta das rotas de recuperação configurando `DEBUG=True` e `LOCAL_DEVELOPMENT=True` no `.env` (ou no ambiente ao iniciar o processo). A exceção só se aplica a requisições cuja origem de rede e host sejam loopback (`127.0.0.1`, `localhost` ou `::1`). Sem ambas as opções ou para clientes remotos, os limites continuam ativos. Não defina `LOCAL_DEVELOPMENT=True` em produção. A validação de email/código/senha, a expiração e o limite de tentativas do código continuam ativos localmente.
+
+O throttling por IP do DRF usa uma janela de uma hora: 10 solicitações, 20 verificações e 10 confirmações. O `Retry-After` indica o tempo restante para expirar a entrada mais antiga dessa janela, não uma duração fixa adicional. Com o `LocMemCache` padrão, as chaves são locais ao processo. Se for necessário remover somente as chaves de recuperação do loopback, execute no backend local:
+
+```sh
+pdm run python manage.py shell -c "from django.core.cache import cache; scopes=('password_reset_request','password_reset_verify','password_reset_confirm'); ips=('127.0.0.1','::1'); keys=[f'throttle_{scope}_{ip}' for scope in scopes for ip in ips]; cache.delete_many(keys)"
+```
+
+Essa operação remove apenas os seis contadores desses escopos e IPs do cache conectado àquele processo. Para outra origem, use o IP efetivo do cliente no lugar dos endereços de loopback. Não limpe todo o cache e não execute isso em produção.
+
+Uma resposta `202` na solicitação é intencionalmente genérica e não confirma envio: ela também é usada para emails inexistentes/inativos, limites de conta e falha de entrega para evitar enumeração. Para correlacionar as etapas de uma solicitação, consulte os eventos `password_reset` no console do Django usando o mesmo `flow_id`. `stage=account result=unavailable` indica que a conta não é elegível; `stage=throttle result=blocked` indica limite de envio/reenvio; `stage=email_backend result=submission_started` indica que o envio foi iniciado; `result=accepted_by_smtp` indica aceitação pelo servidor SMTP, não entrega na caixa de entrada; e `stage=smtp_connection_or_authentication` ou `stage=smtp_submission` com `result=failed` indica falha de transporte. A ausência de `stage=request result=challenge_committed_after_backend_acceptance` após a submissão indica que o desafio não foi confirmado. Os logs não incluem email, código, senha, credenciais ou identificador da conta.
+
 ### Configuração de e-mail
 
 Copie `.env.example` para `.env`. Em desenvolvimento, configure `EMAIL_BACKEND=django.core.mail.backends.console.EmailBackend` para ver as mensagens no terminal. Para envio real, configure o backend SMTP do Django e as variáveis fornecidas pelo seu provedor:
