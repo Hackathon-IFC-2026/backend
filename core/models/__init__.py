@@ -1,4 +1,7 @@
 from .board import Board as Board
+from .google_drive import GoogleDriveCredential as GoogleDriveCredential
+from .google_drive import GoogleDriveOAuthState as GoogleDriveOAuthState
+from .google_drive import TaskDriveAttachment as TaskDriveAttachment
 from .password_reset import PasswordResetChallenge as PasswordResetChallenge
 from .task import Task as Task
 from .task_invitation import TaskInvitation as TaskInvitation

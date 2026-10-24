@@ -4,11 +4,13 @@
 asgiref==3.11.1
 attrs==26.1.0
 certifi==2026.6.17
+cffi==2.1.1; platform_python_implementation != "PyPy"
 cfgv==3.5.0
 charset-normalizer==3.4.7
 click==8.4.2
 cloudinary==1.46.3
 colorama==0.4.6; sys_platform == "win32" or platform_system == "Windows"
+cryptography==50.0.2
 distlib==0.4.3
 dj-database-url==3.1.2
 django==5.2.15
@@ -20,18 +22,32 @@ djangorestframework==3.17.1
 djangorestframework-simplejwt==5.5.1
 drf-spectacular==0.29.0
 filelock==3.29.4
+google-api-core==2.43.0
+google-api-python-client==2.201.0
+google-auth==2.62.0
+google-auth-httplib2==0.4.4
+google-auth-oauthlib==1.5.0
+googleapis-common-protos==1.76.0
 gunicorn==26.2.0
 h11==0.16.0
+httplib2==0.32.0
 identify==2.6.19
 idna==3.18
 inflection==0.5.1
 jsonschema==4.26.0
 jsonschema-specifications==2025.9.1
 nodeenv==1.10.0
+oauthlib==4.0.0
+opentelemetry-api==1.45.1
 pillow==12.2.0
 platformdirs==4.10.0
 pre-commit==4.6.0
+proto-plus==1.29.0
+protobuf==7.36.2
 psycopg2-binary==2.9.13
+pyasn1==0.6.4
+pyasn1-modules==0.4.2
+pycparser==3.11; implementation_name != "PyPy" and platform_python_implementation != "PyPy"
 pydotplus==2.0.2
 pyjwt==2.13.0
 pyparsing==3.3.2
@@ -42,11 +58,12 @@ python-magic-bin==0.4.14; sys_platform == "win32"
 pyyaml==6.0.3
 referencing==0.37.0
 requests==2.34.2
+requests-oauthlib==2.0.0
 rpds-py==0.30.0
 setuptools==82.0.1
 six==1.17.0
 sqlparse==0.5.5
-typing-extensions==4.15.0; python_version < "3.13"
+typing-extensions==4.15.0
 tzdata==2026.2; sys_platform == "win32"
 uritemplate==4.2.0
 urllib3==2.7.0

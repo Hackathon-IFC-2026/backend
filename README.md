@@ -195,3 +195,100 @@ Endpoints (prefixo `/api/`; todos exigem JWT):
 - `POST /api/invitations/{uuid}/accept/` e `POST /api/invitations/{uuid}/decline/`: responder autenticado. Apenas o destinatário vê o convite; aceite inclui o usuário nos participantes, recusa não o inclui. Respostas repetidas retornam `409`; convites expirados retornam `410`.
 
 Os links do e-mail são páginas de confirmação no frontend: `/convites/{uuid}/aceitar` e `/convites/{uuid}/recusar`. O frontend deve mostrar diretamente a confirmação correspondente, pedir login quando necessário preservando a rota de retorno e só então chamar o endpoint POST correspondente com o JWT. Abrir ou pré-visualizar o link não altera o convite. Este repositório contém o backend; as páginas Vue precisam ser implementadas/integradas no projeto de frontend.
+
+## Anexos do Google Drive em tarefas
+
+O backend implementa OAuth 2.0 server-side. O usuário inicia a autorização com seu JWT, autoriza o escopo somente de leitura de metadados e retorna ao frontend após a autorização. Tokens de acesso e de atualização ficam criptografados no banco; eles nunca são enviados ao frontend nem incluídos em respostas.
+
+### Configuração no Google Cloud
+
+1. Crie ou selecione um projeto no [Google Cloud Console](https://console.cloud.google.com/).
+2. Ative a **Google Drive API**.
+3. Configure a tela de consentimento OAuth, os usuários de teste (se o app estiver em modo de teste) e a política de privacidade aplicável.
+4. Crie uma credencial OAuth do tipo **Aplicativo da Web**.
+5. Cadastre o URI de redirecionamento autorizado como `https://SEU-SERVICO.onrender.com/api/google-drive/callback/` (e o equivalente local, se necessário).
+6. Solicite somente `https://www.googleapis.com/auth/drive.metadata.readonly`. Esse escopo permite listar e validar metadados, sem ler o conteúdo dos documentos. A verificação ou publicação do app pelo Google pode ser necessária conforme o modo de uso e a classificação do escopo.
+
+### Variáveis de ambiente
+
+Configure no Render e, opcionalmente, no `.env` local:
+
+```text
+GOOGLE_DRIVE_CLIENT_ID=seu-client-id.apps.googleusercontent.com
+GOOGLE_DRIVE_CLIENT_SECRET=seu-client-secret
+GOOGLE_DRIVE_REDIRECT_URI=https://SEU-SERVICO.onrender.com/api/google-drive/callback/
+GOOGLE_DRIVE_FRONTEND_REDIRECT_URL=https://SEU-FRONTEND/tasks
+GOOGLE_DRIVE_TOKEN_ENCRYPTION_KEY=CHAVE_FERNET_GERADA_SEPARADAMENTE
+```
+
+Gere a chave Fernet fora do código e mantenha-a como segredo no Render:
+
+```bash
+python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+```
+
+Não versione esses valores. Mantenha a mesma chave de criptografia enquanto houver credenciais Google armazenadas no banco; trocá-la sem recriptografar as credenciais exige que os usuários autorizem novamente. O callback do Google e o `GOOGLE_DRIVE_REDIRECT_URI` precisam coincidir exatamente, incluindo o caminho e a barra final.
+
+### API e fluxo do frontend
+
+Todos os endpoints abaixo usam JWT, exceto o callback OAuth:
+
+1. Depois que o usuário escolher criar a tarefa e ela tiver sido salva, solicite a autorização:
+
+   ```http
+   POST /api/google-drive/authorization/
+   Authorization: Bearer <access-token>
+   ```
+
+   ```json
+   {"authorization_url": "https://accounts.google.com/..."}
+   ```
+
+   Abra `authorization_url` no navegador. O Google retorna ao backend em `/api/google-drive/callback/`; o backend valida o estado OAuth de uso único, armazena os tokens criptografados e redireciona o navegador para `GOOGLE_DRIVE_FRONTEND_REDIRECT_URL?google_drive=connected`. Cancelamento e falhas retornam `google_drive=denied`, `authorization_error` ou `configuration_error`. Nenhum token OAuth aparece na URL de retorno.
+
+2. Consulte os arquivos acessíveis à conta conectada:
+
+   ```http
+   GET /api/google-drive/files/?page_token=<opcional>
+   Authorization: Bearer <access-token>
+   ```
+
+   ```json
+   {
+     "files": [
+       {
+         "id": "google-file-id",
+         "name": "Planejamento.pdf",
+         "mime_type": "application/pdf",
+         "size": 12345,
+         "web_view_link": "https://drive.google.com/file/d/google-file-id/view"
+       }
+     ],
+     "next_page_token": null
+   }
+   ```
+
+3. Envie os IDs selecionados para a task já criada:
+
+   ```http
+   POST /api/tasks/42/drive-attachments/
+   Authorization: Bearer <access-token>
+   Content-Type: application/json
+   ```
+
+   ```json
+   {"file_ids": ["google-file-id"]}
+   ```
+
+   A resposta `200` contém os anexos associados. O backend confirma cada ID usando a API do Google Drive com a conta autorizada antes de persistir. A mesma requisição pode ser repetida sem duplicar task ou anexos. Uma autorização ausente/expirada retorna `401`; arquivo inexistente ou inacessível, `400`; falha do provedor, `502`.
+
+4. Consulte ou remova associações:
+
+   ```http
+   GET /api/tasks/42/drive-attachments/
+   DELETE /api/tasks/42/drive-attachments/7/
+   ```
+
+   Somente o criador da task ou o proprietário do board pode associar/remover anexos, conforme as permissões existentes para escrita em tasks. Participantes podem consultar os anexos, de acordo com a permissão de leitura. A remoção exclui somente a associação no backend; não apaga o arquivo do Drive.
+
+O frontend deve manter a task criada enquanto abre a etapa de seleção, usar a autorização se ainda não houver conta conectada, carregar os arquivos paginados, permitir seleção múltipla e enviar os IDs à rota da task existente. Como a autorização redireciona o navegador, preserve o ID da task em estado local seguro (por exemplo, `sessionStorage`) e retome a seleção quando o frontend receber `google_drive=connected`. Em caso de falha de associação, repetir o POST não cria uma segunda task nem duplica a associação.

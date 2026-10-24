@@ -12,6 +12,9 @@ from core.views import (
     CustomTokenObtainPairView,
     CustomTokenRefreshView,
     CustomTokenVerifyView,
+    GoogleDriveAuthorizationView,
+    GoogleDriveCallbackView,
+    GoogleDriveFileListView,
     PasswordResetConfirmView,
     PasswordResetRequestView,
     PasswordResetVerifyView,
@@ -65,6 +68,13 @@ urlpatterns = [
         PasswordResetConfirmView.as_view(),
         name='password_reset_confirm',
     ),
+    path(
+        'api/google-drive/authorization/',
+        GoogleDriveAuthorizationView.as_view(),
+        name='google_drive_authorization',
+    ),
+    path('api/google-drive/callback/', GoogleDriveCallbackView.as_view(), name='google_drive_callback'),
+    path('api/google-drive/files/', GoogleDriveFileListView.as_view(), name='google_drive_files'),
     # API
     path('api/', include(router.urls)),
 ]

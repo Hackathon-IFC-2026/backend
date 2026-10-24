@@ -1,4 +1,7 @@
 from .boards import BoardViewSet as BoardViewSet
+from .google_drive import GoogleDriveAuthorizationView as GoogleDriveAuthorizationView
+from .google_drive import GoogleDriveCallbackView as GoogleDriveCallbackView
+from .google_drive import GoogleDriveFileListView as GoogleDriveFileListView
 from .password_reset import (
     PasswordResetConfirmView as PasswordResetConfirmView,
 )
