@@ -7,18 +7,26 @@ from drf_spectacular.views import (
 )
 from rest_framework.routers import DefaultRouter
 from core.views import (
-    ValidacaoViewSet,
     CustomTokenObtainPairView,
     CustomTokenRefreshView,
     CustomTokenVerifyView,
     UserRegistrationView,
     UserViewSet,
+    ChecklistViewSet,
+    ComentarioViewSet,
+    MaterialApoioViewSet,
+    TarefaViewSet,
+    ProjetoViewSet,
 )
 
 
 router = DefaultRouter()
 router.register(r'usuarios', UserViewSet, basename='usuarios')
-router.register(r'validacoes', ValidacaoViewSet, basename='validacoes')
+router.register(r'checklists', ChecklistViewSet, basename='checklists')
+router.register(r'comentarios', ComentarioViewSet, basename='comentarios')
+router.register(r'materiais-apoio', MaterialApoioViewSet, basename='materiais-apoio')
+router.register(r'tarefas', TarefaViewSet, basename='tarefas')
+router.register(r'projetos', ProjetoViewSet, basename='projetos')
 
 
 urlpatterns = [
