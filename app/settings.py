@@ -70,18 +70,22 @@ LOGGING = {
 
 FRONTEND_URLS = [
     url.strip()
-    for url in os.getenv('FRONTEND_URLS', 'http://localhost:5173,http://127.0.0.1:5173').split(',')
+    for url in os.getenv('FRONTEND_URLS', 'http://localhost:5173,http://127.0.0.1:5173,http://localhost:5174,http://127.0.0.1:5174,http://localhost:4173,https://hackathon-2026.class.fabricadesoftware.ifc.edu.br').split(',')
     if url.strip()
 ]
 FRONTEND_BASE_URL = os.getenv('FRONTEND_BASE_URL', '').rstrip('/')
 
 CLOUDINARY_URL = os.getenv('CLOUDINARY_URL')
 
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-    "https://hackathon-2026.class.fabricadesoftware.ifc.edu.br",
-]
+# Optional Google Drive integration.
+GOOGLE_DRIVE_CLIENT_ID = os.getenv('GOOGLE_DRIVE_CLIENT_ID', '')
+GOOGLE_DRIVE_CLIENT_SECRET = os.getenv('GOOGLE_DRIVE_CLIENT_SECRET', '')
+GOOGLE_DRIVE_REDIRECT_URI = os.getenv('GOOGLE_DRIVE_REDIRECT_URI', '')
+GOOGLE_DRIVE_FRONTEND_REDIRECT_URL = os.getenv('GOOGLE_DRIVE_FRONTEND_REDIRECT_URL', '')
+GOOGLE_DRIVE_TOKEN_ENCRYPTION_KEY = os.getenv('GOOGLE_DRIVE_TOKEN_ENCRYPTION_KEY', '')
+
+CORS_ALLOWED_ORIGINS = FRONTEND_URLS
+CORS_ALLOW_ALL_ORIGINS = False
 CSRF_TRUSTED_ORIGINS = FRONTEND_URLS
 CORS_ALLOW_CREDENTIALS = True
 
@@ -199,6 +203,7 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
 # Opcional: Ativa a compressão e cache do WhiteNoise para deixar o app mais rápido
 STORAGES = {
+    'default': {'BACKEND': 'django.core.files.storage.FileSystemStorage'},
     'staticfiles': {
         'BACKEND': 'whitenoise.storage.CompressedManifestStaticFilesStorage',
     },
@@ -215,7 +220,7 @@ FILE_UPLOAD_PERMISSIONS = 0o640
 # Durante o desenvolvimento o frontend precisa acessar
 # diretamente o servidor Django.
 
-MEDIA_URL = 'http://127.0.0.1:8000/media/'
+MEDIA_URL = os.getenv('MEDIA_URL', '/media/')
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 # ============================================================
@@ -258,7 +263,7 @@ AUTH_USER_MODEL = 'core.User'
 # ============================================================
 
 REST_FRAMEWORK = {
-    'DEFAULT_AUTHENTICATION_CLASSES': ('rest_framework_simplejwt.authentication.JWTAuthentication',),
+    'DEFAULT_AUTHENTICATION_CLASSES': ('core.authentication.VersionedJWTAuthentication',),
     'DEFAULT_PERMISSION_CLASSES': ('rest_framework.permissions.DjangoModelPermissionsOrAnonReadOnly',),
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
     'DEFAULT_PAGINATION_CLASS': 'app.pagination.CustomPagination',

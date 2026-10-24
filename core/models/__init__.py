@@ -1,5 +1,15 @@
 from .board import Board as Board
+from .checklist import Checklist as Checklist
+from .comentario import Comentario as Comentario
+from .google_drive import GoogleDriveCredential as GoogleDriveCredential
+from .google_drive import GoogleDriveOAuthState as GoogleDriveOAuthState
+from .google_drive import TaskDriveAttachment as TaskDriveAttachment
+from .material_apoio import MaterialApoio as MaterialApoio
+from .notificacao import Notificacao as Notificacao
+from .participante_projeto import ParticipanteProjeto as ParticipanteProjeto
 from .password_reset import PasswordResetChallenge as PasswordResetChallenge
+from .projeto import Projeto as Projeto
+from .tarefa import Tarefa as Tarefa
 from .task import Task as Task
 from .task_invitation import TaskInvitation as TaskInvitation
 from .user import User as User

@@ -9,21 +9,38 @@ from rest_framework.routers import DefaultRouter
 
 from core.views import (
     BoardViewSet,
+    ChecklistViewSet,
+    ComentarioViewSet,
     CustomTokenObtainPairView,
     CustomTokenRefreshView,
     CustomTokenVerifyView,
+    GoogleDriveAuthorizationView,
+    GoogleDriveCallbackView,
+    GoogleDriveFileListView,
+    MaterialApoioViewSet,
+    ParticipanteProjetoViewSet,
     PasswordResetConfirmView,
     PasswordResetRequestView,
     PasswordResetVerifyView,
+    ProjetoViewSet,
+    TarefaViewSet,
     TaskInvitationViewSet,
     TaskViewSet,
     UserRegistrationView,
     UserViewSet,
     ValidacaoViewSet,
 )
+from core.views.notificacao import NotificacaoViewSet
 
 router = DefaultRouter()
+router.register(r'notificacoes', NotificacaoViewSet, basename='notificacoes')
 router.register(r'usuarios', UserViewSet, basename='usuarios')
+router.register(r'checklists', ChecklistViewSet, basename='checklists')
+router.register(r'comentarios', ComentarioViewSet, basename='comentarios')
+router.register(r'materiais-apoio', MaterialApoioViewSet, basename='materiais-apoio')
+router.register(r'tarefas', TarefaViewSet, basename='tarefas')
+router.register(r'projetos', ProjetoViewSet, basename='projetos')
+router.register(r'participantes-projeto', ParticipanteProjetoViewSet, basename='participantes-projeto')
 router.register(r'validacoes', ValidacaoViewSet, basename='validacoes')
 router.register(r'boards', BoardViewSet, basename='board')
 router.register(r'tasks', TaskViewSet, basename='task')
@@ -65,6 +82,20 @@ urlpatterns = [
         PasswordResetConfirmView.as_view(),
         name='password_reset_confirm',
     ),
+    path(
+        'api/google-drive/authorization/',
+        GoogleDriveAuthorizationView.as_view(),
+        name='google_drive_authorization',
+    ),
+    path('api/google-drive/callback/', GoogleDriveCallbackView.as_view(), name='google_drive_callback'),
+    path('api/google-drive/files/', GoogleDriveFileListView.as_view(), name='google_drive_files'),
     # API
     path('api/', include(router.urls)),
 ]
+
+# Uploaded media is served by Django only in development.
+from django.conf import settings
+from django.conf.urls.static import static
+
+if settings.DEBUG and not settings.CLOUDINARY_URL:
+    urlpatterns += static(settings.MEDIA_ENDPOINT, document_root=settings.MEDIA_ROOT)
