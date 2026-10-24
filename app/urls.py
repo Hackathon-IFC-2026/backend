@@ -6,19 +6,28 @@ from drf_spectacular.views import (
     SpectacularSwaggerView,
 )
 from rest_framework.routers import DefaultRouter
+
 from core.views import (
-    ValidacaoViewSet,
+    BoardViewSet,
     CustomTokenObtainPairView,
     CustomTokenRefreshView,
     CustomTokenVerifyView,
+    PasswordResetConfirmView,
+    PasswordResetRequestView,
+    PasswordResetVerifyView,
+    TaskInvitationViewSet,
+    TaskViewSet,
     UserRegistrationView,
     UserViewSet,
+    ValidacaoViewSet,
 )
-
 
 router = DefaultRouter()
 router.register(r'usuarios', UserViewSet, basename='usuarios')
 router.register(r'validacoes', ValidacaoViewSet, basename='validacoes')
+router.register(r'boards', BoardViewSet, basename='board')
+router.register(r'tasks', TaskViewSet, basename='task')
+router.register(r'invitations', TaskInvitationViewSet, basename='task-invitation')
 
 
 urlpatterns = [
@@ -41,6 +50,21 @@ urlpatterns = [
     path('api/token/verify/', CustomTokenVerifyView.as_view(), name='token_verify'),
     # Registro de usuários
     path('api/registro/', UserRegistrationView.as_view(), name='user_registration'),
+    path(
+        'api/auth/password-reset/request/',
+        PasswordResetRequestView.as_view(),
+        name='password_reset_request',
+    ),
+    path(
+        'api/auth/password-reset/verify/',
+        PasswordResetVerifyView.as_view(),
+        name='password_reset_verify',
+    ),
+    path(
+        'api/auth/password-reset/confirm/',
+        PasswordResetConfirmView.as_view(),
+        name='password_reset_confirm',
+    ),
     # API
     path('api/', include(router.urls)),
 ]

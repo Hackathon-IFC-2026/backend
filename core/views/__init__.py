@@ -1,3 +1,18 @@
-from .token import CustomTokenObtainPairView, CustomTokenRefreshView, CustomTokenVerifyView
-from .user import UserRegistrationView, UserViewSet
-from .validacao import ValidacaoViewSet
+from .boards import BoardViewSet as BoardViewSet
+from .password_reset import (
+    PasswordResetConfirmView as PasswordResetConfirmView,
+)
+from .password_reset import (
+    PasswordResetRequestView as PasswordResetRequestView,
+)
+from .password_reset import (
+    PasswordResetVerifyView as PasswordResetVerifyView,
+)
+from .task_invitations import TaskInvitationViewSet as TaskInvitationViewSet
+from .tasks import TaskViewSet as TaskViewSet
+from .token import CustomTokenObtainPairView as CustomTokenObtainPairView
+from .token import CustomTokenRefreshView as CustomTokenRefreshView
+from .token import CustomTokenVerifyView as CustomTokenVerifyView
+from .user import UserRegistrationView as UserRegistrationView
+from .user import UserViewSet as UserViewSet
+from .validacao import ValidacaoViewSet as ValidacaoViewSet
