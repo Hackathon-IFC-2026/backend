@@ -6,6 +6,7 @@ from core.project_permissions import administra
 
 
 class ParticipanteProjetoSerializer(serializers.ModelSerializer):
+    capacidade = serializers.IntegerField(min_value=1, max_value=1000, required=False)
     class Meta:
         model = ParticipanteProjeto
         fields = '__all__'

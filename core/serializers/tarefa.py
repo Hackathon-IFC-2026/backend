@@ -7,6 +7,7 @@ from core.project_permissions import administra, participa
 
 
 class TarefaSerializer(serializers.ModelSerializer):
+    esperado_responsavel = serializers.IntegerField(required=False, allow_null=True, write_only=True)
     bloqueada = serializers.BooleanField(read_only=True)
     atrasada = serializers.BooleanField(read_only=True)
     responsavel = serializers.PrimaryKeyRelatedField(
@@ -23,6 +24,8 @@ class TarefaSerializer(serializers.ModelSerializer):
         projeto = self.instance.projeto if self.instance else attrs['projeto']
         if self.instance and 'projeto' in attrs and attrs['projeto'].pk != self.instance.projeto_id:
             raise serializers.ValidationError({'projeto': 'Não é permitido transferir tarefas entre projetos.'})
+        if self.instance and 'esperado_responsavel' in attrs and attrs['esperado_responsavel'] != self.instance.responsavel_id:
+            raise serializers.ValidationError({'responsavel': 'O responsável mudou. Atualize a análise antes de redistribuir.'})
         admin = administra(projeto, user)
         if self.instance is None and not admin:
             raise PermissionDenied('Somente o administrador pode criar tarefas.')
@@ -50,6 +53,7 @@ class TarefaSerializer(serializers.ModelSerializer):
         return attrs
 
     def create(self, validated_data):
+        validated_data.pop('esperado_responsavel', None)
         validated_data['criador'] = self.context['request'].user
         validated_data.setdefault('responsavel', self.context['request'].user)
         validated_data['concluida_em'] = (
@@ -58,6 +62,7 @@ class TarefaSerializer(serializers.ModelSerializer):
         return super().create(validated_data)
 
     def update(self, instance, validated_data):
+        validated_data.pop('esperado_responsavel', None)
         situacao = validated_data.get('situacao', instance.situacao)
         if situacao != instance.situacao:
             validated_data['concluida_em'] = timezone.now() if situacao == Tarefa.Situacao.CONCLUIDA else None

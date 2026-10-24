@@ -9,6 +9,7 @@ from .notificacao import Notificacao as Notificacao
 from .participante_projeto import ParticipanteProjeto as ParticipanteProjeto
 from .password_reset import PasswordResetChallenge as PasswordResetChallenge
 from .projeto import Projeto as Projeto
+from .redistribuicao import Redistribuicao as Redistribuicao
 from .tarefa import Tarefa as Tarefa
 from .task import Task as Task
 from .task_invitation import TaskInvitation as TaskInvitation

@@ -1,4 +1,6 @@
 from django.db import transaction
+from rest_framework.decorators import action
+from rest_framework.response import Response
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.viewsets import ModelViewSet
@@ -27,6 +29,11 @@ class TarefaViewSet(ModelViewSet):
             qs = qs.filter(projeto_id=projeto)
         return qs
 
+    @action(detail=True, methods=['get'], url_path='redistribuicoes')
+    def redistribuicoes(self, request, pk=None):
+        tarefa = self.get_object()
+        return Response(list(tarefa.redistribuicoes.values('id', 'anterior_id', 'novo_id', 'autor_id', 'criada_em')))
+
     @transaction.atomic
     def perform_create(self, serializer):
         projeto = Projeto.objects.select_for_update().get(pk=serializer.validated_data['projeto'].pk)
@@ -49,9 +56,19 @@ class TarefaViewSet(ModelViewSet):
         responsavel = serializer.validated_data.get('responsavel')
         if responsavel and not participa(projeto, responsavel):
             raise ValidationError({'responsavel': 'O responsável precisa participar do projeto.'})
+        anterior = tarefa.responsavel_id
         serializer.instance = tarefa
         serializer.validate(serializer.validated_data.copy())
-        serializer.save()
+        salva = serializer.save()
+        if anterior != salva.responsavel_id:
+            from core.models import Redistribuicao
+            from core.services.notificacoes import notificar
+            Redistribuicao.objects.create(tarefa=salva, anterior_id=anterior,
+                                         novo_id=salva.responsavel_id, autor=self.request.user)
+            if anterior:
+                notificar(anterior, 'redistribuicao',
+                          f'A tarefa {salva.titulo} foi transferida para outro responsável no projeto {projeto.nome}.',
+                          projeto, salva)
 
     @transaction.atomic
     def perform_destroy(self, instance):

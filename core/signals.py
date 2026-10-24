@@ -10,7 +10,7 @@ def antes_tarefa(sender, instance, **kwargs):
     instance._antes = (
         sender.objects
         .filter(pk=instance.pk)
-        .values('titulo', 'descricao', 'prioridade', 'data_inicio', 'prazo', 'situacao', 'responsavel_id')
+        .values('titulo', 'descricao', 'prioridade', 'complexidade', 'impedida', 'data_inicio', 'prazo', 'situacao', 'responsavel_id')
         .first()
     )
 

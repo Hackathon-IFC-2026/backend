@@ -14,6 +14,8 @@ class Tarefa(models.Model):
         ALTA = 3, 'Alta'
 
     titulo = models.CharField(max_length=100, verbose_name='Título da Tarefa')
+    complexidade = models.PositiveSmallIntegerField(choices=[(1, 'Baixa'), (2, 'Média'), (3, 'Alta')], default=1)
+    impedida = models.BooleanField(default=False, verbose_name='Bloqueada por dependência')
     descricao = models.TextField(verbose_name='Descrição da Tarefa')
     data_inicio = models.DateField(null=True, blank=True, verbose_name='Data de início')
     prazo = models.DateTimeField(null=True, blank=True, verbose_name='Prazo')

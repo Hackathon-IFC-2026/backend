@@ -272,4 +272,4 @@ class ProjectAdminMigrationTests(TransactionTestCase):
             self.assertEqual(members.objects.get(projeto_id=project.pk, usuario_id=owner.pk).papel, 'admin')
             self.assertEqual(members.objects.get(projeto_id=project.pk, usuario_id=other.pk).papel, 'admin')
         finally:
-            MigrationExecutor(connection).migrate([('core', '0017_tarefa_data_inicio_user_foto')])
+            MigrationExecutor(connection).migrate(MigrationExecutor(connection).loader.graph.leaf_nodes())

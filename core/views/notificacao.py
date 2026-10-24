@@ -24,7 +24,9 @@ class NotificacaoViewSet(ModelViewSet):
         return Notificacao.objects.filter(usuario=self.request.user, excluida=False)
 
     def list(self, request, *args, **kwargs):
+        from core.services.insights import alertas_sobrecarga
         prazos(request.user)
+        alertas_sobrecarga(request.user)
         return super().list(request, *args, **kwargs)
 
     def perform_destroy(self, instance):

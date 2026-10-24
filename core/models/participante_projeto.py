@@ -7,6 +7,7 @@ class ParticipanteProjeto(models.Model):
         PARTICIPANTE = 'participante', 'Participante'
 
     entrou_em = models.DateTimeField(auto_now_add=True, verbose_name='Entrou em')
+    capacidade = models.PositiveSmallIntegerField(default=10)
     papel = models.CharField(
         max_length=20, choices=Papel.choices, default=Papel.PARTICIPANTE, verbose_name='Papel do Participante'
     )
