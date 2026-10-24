@@ -6,20 +6,30 @@ from drf_spectacular.views import (
     SpectacularSwaggerView,
 )
 from rest_framework.routers import DefaultRouter
+
 from core.views import (
+    BoardViewSet,
+    ChecklistViewSet,
+    ComentarioViewSet,
     CustomTokenObtainPairView,
     CustomTokenRefreshView,
     CustomTokenVerifyView,
+    GoogleDriveAuthorizationView,
+    GoogleDriveCallbackView,
+    GoogleDriveFileListView,
+    MaterialApoioViewSet,
+    ParticipanteProjetoViewSet,
+    PasswordResetConfirmView,
+    PasswordResetRequestView,
+    PasswordResetVerifyView,
+    ProjetoViewSet,
+    TarefaViewSet,
+    TaskInvitationViewSet,
+    TaskViewSet,
     UserRegistrationView,
     UserViewSet,
-    ChecklistViewSet,
-    ComentarioViewSet,
-    MaterialApoioViewSet,
-    TarefaViewSet,
-    ProjetoViewSet,
-    ParticipanteProjetoViewSet,
+    ValidacaoViewSet,
 )
-
 
 router = DefaultRouter()
 router.register(r'usuarios', UserViewSet, basename='usuarios')
@@ -29,6 +39,10 @@ router.register(r'materiais-apoio', MaterialApoioViewSet, basename='materiais-ap
 router.register(r'tarefas', TarefaViewSet, basename='tarefas')
 router.register(r'projetos', ProjetoViewSet, basename='projetos')
 router.register(r'participantes-projeto', ParticipanteProjetoViewSet, basename='participantes-projeto')
+router.register(r'validacoes', ValidacaoViewSet, basename='validacoes')
+router.register(r'boards', BoardViewSet, basename='board')
+router.register(r'tasks', TaskViewSet, basename='task')
+router.register(r'invitations', TaskInvitationViewSet, basename='task-invitation')
 
 
 urlpatterns = [
@@ -51,6 +65,28 @@ urlpatterns = [
     path('api/token/verify/', CustomTokenVerifyView.as_view(), name='token_verify'),
     # Registro de usuários
     path('api/registro/', UserRegistrationView.as_view(), name='user_registration'),
+    path(
+        'api/auth/password-reset/request/',
+        PasswordResetRequestView.as_view(),
+        name='password_reset_request',
+    ),
+    path(
+        'api/auth/password-reset/verify/',
+        PasswordResetVerifyView.as_view(),
+        name='password_reset_verify',
+    ),
+    path(
+        'api/auth/password-reset/confirm/',
+        PasswordResetConfirmView.as_view(),
+        name='password_reset_confirm',
+    ),
+    path(
+        'api/google-drive/authorization/',
+        GoogleDriveAuthorizationView.as_view(),
+        name='google_drive_authorization',
+    ),
+    path('api/google-drive/callback/', GoogleDriveCallbackView.as_view(), name='google_drive_callback'),
+    path('api/google-drive/files/', GoogleDriveFileListView.as_view(), name='google_drive_files'),
     # API
     path('api/', include(router.urls)),
 ]

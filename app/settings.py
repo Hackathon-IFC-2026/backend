@@ -9,13 +9,10 @@ from dotenv import load_dotenv
 # Carregamento das variáveis de ambiente
 # ============================================================
 
-load_dotenv()
-
-# ============================================================
-# Caminhos do projeto
-# ============================================================
-
 BASE_DIR = Path(__file__).resolve().parent.parent
+ENV_FILE = BASE_DIR / '.env'
+ENV_KEYS_BEFORE_DOTENV = frozenset(os.environ)
+load_dotenv(ENV_FILE)
 
 # ============================================================
 # Configurações básicas
@@ -24,6 +21,48 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure')
 DEBUG = os.getenv('DEBUG', 'True').lower() == 'true'
 ALLOWED_HOSTS = ['*']
+
+# ============================================================
+# E-mail
+# ============================================================
+
+EMAIL_BACKEND = os.getenv(
+    'EMAIL_BACKEND',
+    'django.core.mail.backends.console.EmailBackend' if DEBUG else 'django.core.mail.backends.smtp.EmailBackend',
+)
+EMAIL_HOST = os.getenv('EMAIL_HOST', '')
+EMAIL_PORT = int(os.getenv('EMAIL_PORT', '587'))
+EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', '')
+EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
+EMAIL_TIMEOUT = int(os.getenv('EMAIL_TIMEOUT', '20'))
+EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', 'True').lower() == 'true'
+EMAIL_USE_SSL = os.getenv('EMAIL_USE_SSL', 'False').lower() == 'true'
+DEFAULT_FROM_EMAIL = os.getenv(
+    'DEFAULT_FROM_EMAIL',
+    EMAIL_HOST_USER or 'no-reply@localhost',
+)
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'password_reset': {
+            'format': '%(asctime)s %(levelname)s %(name)s %(message)s',
+        },
+    },
+    'handlers': {
+        'password_reset_console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'password_reset',
+        },
+    },
+    'loggers': {
+        'core.services.password_reset': {
+            'handlers': ['password_reset_console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+    },
+}
 
 # ============================================================
 # Frontend autorizado
@@ -38,8 +77,19 @@ FRONTEND_URLS = [
     for url in os.getenv('FRONTEND_URLS', DEFAULT_FRONTEND_URLS).split(',')
     if url.strip()
 ]
+FRONTEND_BASE_URL = os.getenv('FRONTEND_BASE_URL', '').rstrip('/')
 
 CLOUDINARY_URL = os.getenv('CLOUDINARY_URL')
+
+# ============================================================
+# Google Drive
+# ============================================================
+
+GOOGLE_DRIVE_CLIENT_ID = os.getenv('GOOGLE_DRIVE_CLIENT_ID', '')
+GOOGLE_DRIVE_CLIENT_SECRET = os.getenv('GOOGLE_DRIVE_CLIENT_SECRET', '')
+GOOGLE_DRIVE_REDIRECT_URI = os.getenv('GOOGLE_DRIVE_REDIRECT_URI', '')
+GOOGLE_DRIVE_FRONTEND_REDIRECT_URL = os.getenv('GOOGLE_DRIVE_FRONTEND_REDIRECT_URL', '')
+GOOGLE_DRIVE_TOKEN_ENCRYPTION_KEY = os.getenv('GOOGLE_DRIVE_TOKEN_ENCRYPTION_KEY', '')
 
 CORS_ALLOWED_ORIGINS = FRONTEND_URLS
 CSRF_TRUSTED_ORIGINS = FRONTEND_URLS
@@ -56,14 +106,12 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-
     # Terceiros
     'corsheaders',
     'django_extensions',
     'django_filters',
     'drf_spectacular',
     'rest_framework',
-
     # Aplicações do projeto
     'core',
 ]
@@ -161,8 +209,8 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
 # Opcional: Ativa a compressão e cache do WhiteNoise para deixar o app mais rápido
 STORAGES = {
-    "staticfiles": {
-        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+    'staticfiles': {
+        'BACKEND': 'whitenoise.storage.CompressedManifestStaticFilesStorage',
     },
 }
 
@@ -220,21 +268,16 @@ AUTH_USER_MODEL = 'core.User'
 # ============================================================
 
 REST_FRAMEWORK = {
-    'DEFAULT_AUTHENTICATION_CLASSES': (
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
-    ),
-
-    'DEFAULT_PERMISSION_CLASSES': (
-        'rest_framework.permissions.DjangoModelPermissionsOrAnonReadOnly',
-    ),
-
-    'DEFAULT_SCHEMA_CLASS':
-        'drf_spectacular.openapi.AutoSchema',
-
-    'DEFAULT_PAGINATION_CLASS':
-        'app.pagination.CustomPagination',
-
+    'DEFAULT_AUTHENTICATION_CLASSES': ('rest_framework_simplejwt.authentication.JWTAuthentication',),
+    'DEFAULT_PERMISSION_CLASSES': ('rest_framework.permissions.DjangoModelPermissionsOrAnonReadOnly',),
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+    'DEFAULT_PAGINATION_CLASS': 'app.pagination.CustomPagination',
     'PAGE_SIZE': 10,
+    'DEFAULT_THROTTLE_RATES': {
+        'password_reset_request': '10/hour',
+        'password_reset_verify': '20/hour',
+        'password_reset_confirm': '10/hour',
+    },
 }
 
 # ============================================================
@@ -266,7 +309,7 @@ print('CONFIGURAÇÃO DA APLICAÇÃO')
 print('=' * 70)
 
 print(f'DEBUG....................: {DEBUG if DEBUG else "NÃO DEFINIDO"}')
-print(f'SECRET_KEY...............: {SECRET_KEY if SECRET_KEY else "NÃO DEFINIDA"}')
+print(f'SECRET_KEY...............: {"DEFINIDA" if SECRET_KEY else "NÃO DEFINIDA"}')
 
 print()
 
@@ -289,6 +332,6 @@ print()
 print(f'CLOUDINARY..............: {"SIM" if CLOUDINARY_URL else "NÃO"}')
 
 if CLOUDINARY_URL:
-    print(f'CLOUDINARY_URL..........: {CLOUDINARY_URL}')
+    print('CLOUDINARY_URL..........: DEFINIDA (valor oculto)')
 
 print('=' * 70)
