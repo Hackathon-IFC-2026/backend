@@ -53,8 +53,15 @@ class UserAdmin(BaseUserAdmin):
 
 
 admin.site.register(models.User, UserAdmin)
+admin.site.register(models.Projeto)
+admin.site.register(models.Checklist)
+admin.site.register(models.Comentario)
+admin.site.register(models.MaterialApoio)
+admin.site.register(models.Tarefa)
+admin.site.register(models.ParticipanteProjeto)
 admin.site.register(models.Validacao)
 admin.site.register(models.Board)
 admin.site.register(models.Task)
 admin.site.register(models.TaskInvitation)
 admin.site.register(models.TaskDriveAttachment)
+

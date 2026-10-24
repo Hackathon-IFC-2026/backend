@@ -9,15 +9,21 @@ from rest_framework.routers import DefaultRouter
 
 from core.views import (
     BoardViewSet,
+    ChecklistViewSet,
+    ComentarioViewSet,
     CustomTokenObtainPairView,
     CustomTokenRefreshView,
     CustomTokenVerifyView,
     GoogleDriveAuthorizationView,
     GoogleDriveCallbackView,
     GoogleDriveFileListView,
+    MaterialApoioViewSet,
+    ParticipanteProjetoViewSet,
     PasswordResetConfirmView,
     PasswordResetRequestView,
     PasswordResetVerifyView,
+    ProjetoViewSet,
+    TarefaViewSet,
     TaskInvitationViewSet,
     TaskViewSet,
     UserRegistrationView,
@@ -27,6 +33,12 @@ from core.views import (
 
 router = DefaultRouter()
 router.register(r'usuarios', UserViewSet, basename='usuarios')
+router.register(r'checklists', ChecklistViewSet, basename='checklists')
+router.register(r'comentarios', ComentarioViewSet, basename='comentarios')
+router.register(r'materiais-apoio', MaterialApoioViewSet, basename='materiais-apoio')
+router.register(r'tarefas', TarefaViewSet, basename='tarefas')
+router.register(r'projetos', ProjetoViewSet, basename='projetos')
+router.register(r'participantes-projeto', ParticipanteProjetoViewSet, basename='participantes-projeto')
 router.register(r'validacoes', ValidacaoViewSet, basename='validacoes')
 router.register(r'boards', BoardViewSet, basename='board')
 router.register(r'tasks', TaskViewSet, basename='task')

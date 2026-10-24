@@ -1,16 +1,16 @@
 from .boards import BoardViewSet as BoardViewSet
+from .checklist import ChecklistViewSet as ChecklistViewSet
+from .comentario import ComentarioViewSet as ComentarioViewSet
 from .google_drive import GoogleDriveAuthorizationView as GoogleDriveAuthorizationView
 from .google_drive import GoogleDriveCallbackView as GoogleDriveCallbackView
 from .google_drive import GoogleDriveFileListView as GoogleDriveFileListView
-from .password_reset import (
-    PasswordResetConfirmView as PasswordResetConfirmView,
-)
-from .password_reset import (
-    PasswordResetRequestView as PasswordResetRequestView,
-)
-from .password_reset import (
-    PasswordResetVerifyView as PasswordResetVerifyView,
-)
+from .material_apoio import MaterialApoioViewSet as MaterialApoioViewSet
+from .participante_projeto import ParticipanteProjetoViewSet as ParticipanteProjetoViewSet
+from .password_reset import PasswordResetConfirmView as PasswordResetConfirmView
+from .password_reset import PasswordResetRequestView as PasswordResetRequestView
+from .password_reset import PasswordResetVerifyView as PasswordResetVerifyView
+from .projeto import ProjetoViewSet as ProjetoViewSet
+from .tarefa import TarefaViewSet as TarefaViewSet
 from .task_invitations import TaskInvitationViewSet as TaskInvitationViewSet
 from .tasks import TaskViewSet as TaskViewSet
 from .token import CustomTokenObtainPairView as CustomTokenObtainPairView
@@ -19,3 +19,4 @@ from .token import CustomTokenVerifyView as CustomTokenVerifyView
 from .user import UserRegistrationView as UserRegistrationView
 from .user import UserViewSet as UserViewSet
 from .validacao import ValidacaoViewSet as ValidacaoViewSet
+
